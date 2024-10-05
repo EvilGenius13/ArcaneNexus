@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Game Launcher</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+        h1 {
+            text-align: center;
+        }
+        #status {
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.2em;
+        }
+        #select-folder {
+            display: block;
+            margin: 0 auto;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        #download-info {
+            margin-top: 30px;
+            display: none;
+            text-align: center;
+        }
+        #progress-container {
+            width: 80%;
+            height: 25px;
+            background-color: #444;
+            border-radius: 5px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4caf50;
+            transition: width 0.3s;
+        }
+        #download-count {
+            margin-bottom: 10px;
+        }
+        #error-log {
+            margin-top: 20px;
+            color: #ff4c4c;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>Game Launcher</h1>
+    <div id="status">Checking server status...</div>
+    <button id="select-folder">Select Destination Folder</button>
+    <div id="download-info">
+        <p id="download-count">Downloaded 0/0 files.</p>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="error-log"></div>
+    </div>
+    <script src="renderer.js"></script>
+</body>
+</html>
