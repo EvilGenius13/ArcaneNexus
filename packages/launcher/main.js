@@ -6,8 +6,88 @@ const crypto = require('crypto');
 
 let mainWindow;
 
+// Enable hot reload for development
+if (process.env.NODE_ENV === 'development') {
+const path = require('path');
+require('electron-reload')(__dirname, {
+    electron: require(path.join(__dirname, 'node_modules', 'electron'))
+});
+};
+
 // Replace with your server's IP or URL
 const SERVER_IP = 'http://localhost:3000'; // Example: 'http://localhost:3000'
+
+// Get the user data path for storing configuration
+const userDataPath = app.getPath('userData');
+const configFilePath = path.join(userDataPath, 'config.json');
+
+const { spawn } = require('child_process'); // Import child_process
+
+// Read configuration from file
+function readConfig() {
+    try {
+        if (fs.existsSync(configFilePath)) {
+            const data = fs.readFileSync(configFilePath, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch (err) {
+        console.error('Error reading config:', err);
+    }
+    return {};
+}
+
+// Write configuration to file
+function writeConfig(config) {
+    try {
+        fs.writeFileSync(configFilePath, JSON.stringify(config, null, 4));
+    } catch (err) {
+        console.error('Error writing config:', err);
+    }
+}
+
+let config = {};
+
+// IPC Handler: Launch Game
+ipcMain.handle('launch-game', async () => {
+    if (!config.installDirectory || !config.manifest) {
+        console.error('Game is not installed or manifest is missing.');
+        return { success: false };
+    }
+
+    const executableRelativePath = config.manifest.executablePath;
+    if (!executableRelativePath) {
+        console.error('Executable path is not specified in the manifest.');
+        return { success: false };
+    }
+
+    const executablePath = path.join(config.installDirectory, executableRelativePath);
+
+    // Check if the executable exists
+    if (!fs.existsSync(executablePath)) {
+        console.error(`Executable not found at path: ${executablePath}`);
+        return { success: false };
+    }
+
+    // Launch the executable
+    try {
+        // On Windows
+        if (process.platform === 'win32') {
+            spawn('cmd', ['/c', 'start', '', executablePath], { detached: true });
+        } else if (process.platform === 'darwin') {
+            spawn('open', [executablePath], { detached: true });
+        } else if (process.platform === 'linux') {
+            spawn('xdg-open', [executablePath], { detached: true });
+        }
+
+        // Optionally quit the launcher
+        // app.quit();
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to launch the game:', error);
+        return { success: false };
+    }
+});
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -23,10 +103,13 @@ function createWindow() {
     mainWindow.loadFile('index.html');
 
     // Optional: Open DevTools for debugging
-    // mainWindow.webContents.openDevTools();
+    mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
+    // Read config on app start
+    config = readConfig();
+
     createWindow();
 
     app.on('activate', function () {
@@ -65,10 +148,34 @@ ipcMain.handle('fetch-manifest', async () => {
     try {
         const manifestUrl = `${SERVER_IP}/manifest.json`;
         const response = await axios.get(manifestUrl);
-        return { success: true, data: response.data };
+        const newManifest = response.data;
+
+        // Compare with stored manifest
+        const storedManifest = config.manifest;
+        let updatesAvailable = false;
+
+        if (!storedManifest) {
+            updatesAvailable = true;
+        } else {
+            // Simple comparison logic
+            updatesAvailable = JSON.stringify(newManifest) !== JSON.stringify(storedManifest);
+        }
+
+        return { success: true, data: newManifest, updatesAvailable };
     } catch (error) {
         return { success: false, error: error.message };
     }
+});
+
+// IPC Handler: Get Config
+ipcMain.handle('get-config', async () => {
+    return readConfig();
+});
+
+// IPC Handler: Set Config
+ipcMain.handle('set-config', async (event, newConfig) => {
+    config = { ...config, ...newConfig };
+    writeConfig(config);
 });
 
 // Function to compute SHA-256 hash of a file
@@ -82,13 +189,88 @@ function computeFileHash(filePath) {
     });
 }
 
+// Function to get all files in a directory recursively
+function getAllFiles(dirPath, arrayOfFiles) {
+    const files = fs.readdirSync(dirPath);
+
+    arrayOfFiles = arrayOfFiles || [];
+
+    files.forEach((file) => {
+        const fullPath = path.join(dirPath, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+            arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
+        } else {
+            arrayOfFiles.push(fullPath);
+        }
+    });
+
+    return arrayOfFiles;
+}
+
+// Function to clean up files not in the manifest
+function cleanUpFiles(destination, manifestFiles) {
+    const allFiles = getAllFiles(destination);
+    const manifestFilePaths = manifestFiles.map((file) => path.join(destination, file.path));
+
+    const filesToDelete = allFiles.filter((file) => !manifestFilePaths.includes(file));
+
+    filesToDelete.forEach((file) => {
+        try {
+            fs.unlinkSync(file);
+            console.log(`Deleted old file: ${file}`);
+        } catch (err) {
+            console.error(`Error deleting file ${file}:`, err.message);
+        }
+    });
+}
+
 // IPC Handler: Download Files
 ipcMain.on('download-files', async (event, manifest, destination) => {
-    const totalFiles = manifest.files.length;
+    let errorsOccurred = false; // Flag to track errors
     let downloadedFiles = 0;
 
+    // Determine which files need to be downloaded
+    let filesToDownload = [];
     for (const file of manifest.files) {
-        const fileUrl = `${SERVER_IP}/public_files/${file.path}`; // Could choose a different path but this is good for now
+        const destPath = path.join(destination, file.path);
+        let shouldDownload = true;
+
+        if (fs.existsSync(destPath)) {
+            const existingFileHash = await computeFileHash(destPath);
+            if (existingFileHash === file.hash) {
+                shouldDownload = false;
+            }
+        }
+
+        if (shouldDownload) {
+            filesToDownload.push(file);
+        }
+    }
+
+    const totalFiles = filesToDownload.length;
+
+    // Send initial progress update to renderer
+    mainWindow.webContents.send('download-started', {
+        total: totalFiles
+    });
+
+    // If there are no files to download, send 'download-complete' and return
+    if (totalFiles === 0) {
+        mainWindow.webContents.send('download-complete');
+
+        // Update the stored manifest and config if no errors occurred
+        if (!errorsOccurred) {
+            config.manifest = manifest;
+            config.installDirectory = destination;
+            writeConfig(config);
+        }
+
+        return;
+    }
+
+    // Loop over filesToDownload
+    for (const file of filesToDownload) {
+        const fileUrl = `${SERVER_IP}/public_files/${file.path}`;
         const destPath = path.join(destination, file.path);
 
         try {
@@ -129,6 +311,7 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
             });
 
         } catch (error) {
+            errorsOccurred = true; // Set the error flag
             console.error(`Error downloading ${file.path}:`, error.message);
             mainWindow.webContents.send('download-error', {
                 file: file.path,
@@ -144,4 +327,16 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
 
     // Notify renderer that download is complete
     mainWindow.webContents.send('download-complete');
+
+    if (!errorsOccurred) {
+        // Clean up old files
+        cleanUpFiles(destination, manifest.files);
+
+        // Update the stored manifest
+        config.manifest = manifest;
+        config.installDirectory = destination;
+        writeConfig(config);
+    } else {
+        console.error('Errors occurred during download. Manifest not updated.');
+    }
 });

@@ -68,7 +68,7 @@ function shouldSkipFile(fileName, ignoreFiles) {
 }
 
 // Configuration
-const folderToScan = '/Users/jaina/Documents/my_folder'; // <--- Change Me
+const folderToScan = '/Users/jaina/Documents/example'; // <--- Change Me
 const outputManifest = path.join(__dirname, 'manifest.json');
 
 // Files or extensions to skip
@@ -82,9 +82,11 @@ if (!fs.existsSync(folderToScan)) {
 
 console.log(`Scanning folder: ${folderToScan}`);
 
-// Generate Manifest
+// Generate Manifest (These will turn into environment variables later)
 const manifest = {
     generatedAt: new Date().toISOString(),
+    version: '1.0.1',
+    executablePath: "/bin/sample.pdf",
     files: scanDirectory(folderToScan, folderToScan, ignoreList),
 };
 

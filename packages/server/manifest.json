@@ -1,6 +1,18 @@
 {
-  "generatedAt": "2024-10-05T00:50:19.984Z",
+  "generatedAt": "2024-10-08T02:15:11.350Z",
+  "version": "1.0.1",
+  "executablePath": "/bin/sample.pdf",
   "files": [
+    {
+      "path": "DALL·E 2023-10-20 16.01.23 - Drawing of a striking female Pokémon trainer with vibrant red hair, poised and ready for a Pokémon battle, with a Pokédex and other training gear by h.png",
+      "size": 1831959,
+      "hash": "2a9e86d3cf1e02cafcaa95bfd89c50ce76e9e45d6e9550e216cb472cd077865d"
+    },
+    {
+      "path": "DALL·E 2023-10-22 14.07.18 - Illustration of a determined young witch with brown hair pulled back in a neat ponytail, holding a stack of books and her wand. The Hogwarts emblem is.png",
+      "size": 1110083,
+      "hash": "49b1f0c47588d39b5e85f9394b952487ce99d794b3297346f3387f418f198d90"
+    },
     {
       "path": "DALL·E 2023-10-30 12.45.59 - Cartoon illustration of a mystical room where a warlock from World of Warcraft would practice their magic. The room is dimly lit, with purple and gree.png",
       "size": 2360776,
@@ -15,6 +27,16 @@
       "path": "DALL·E 2023-11-06 15.14.15 - Imagine a creature with the whimsical charm of a Pokemon. This creature has bright azure fur, large expressive emerald eyes, and three fluffy tails th.png",
       "size": 1608676,
       "hash": "8639e0ce7203f41e303c567a531e94816e99b14a264c87469300ff27c825dc23"
+    },
+    {
+      "path": "bin/sample.pdf",
+      "size": 18810,
+      "hash": "229defbb0cee6f02673a5cde290d0673e75a0dc31cec43989c8ab2a4eca7e1bb"
+    },
+    {
+      "path": "file-change.txt",
+      "size": 78,
+      "hash": "f7b0b046e18eec43f0e556cf58b8c38dda54661602b9392e603289baf77feca1"
     }
   ]
 }
