@@ -6,6 +6,7 @@
   ],
   "scripts": {
     "start:server": "npm run start --workspace=packages/server",
+    "generate:manifest": "npm run generate --workspace=packages/generator",
     "build:generator": "npm run build --workspace=packages/generator",
     "build:launcher": "npm run build --workspace=packages/launcher",
     "build": "npm run build:generator && npm run build:launcher",

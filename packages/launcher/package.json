@@ -1,10 +1,12 @@
 {
-  "name": "launcher",
+  "name": "arcanenexus-launcher",
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron ."
+    "dev": "electron .",
+    "start": "electron .",
+    "build": "electron-builder"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +16,8 @@
     "axios": "^1.7.7",
     "electron": "^32.1.2",
     "progressbar.js": "^1.1.1"
+  },
+  "devDependencies": {
+    "electron-reload": "^2.0.0-alpha.1"
   }
 }

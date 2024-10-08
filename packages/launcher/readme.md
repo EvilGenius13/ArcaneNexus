@@ -1,6 +1,9 @@
 ### Todo:
-- [] Manifest validation
+- [X] Manifest validation
 - [] Uninstall
 - [] Change path
 - [] create folder
-- [] update option if manifest version changes
+- [X] update option if manifest version changes
+- [] version window
+- [] settings window
+- [] menu window
