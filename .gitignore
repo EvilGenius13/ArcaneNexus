@@ -1,2 +1,4 @@
 node_modules
 .env
+/packages/launcher/dist
+.DS_Store

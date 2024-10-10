@@ -25,7 +25,6 @@ ArcaneNexus/
 │       ├── package.json
 │       └── src/
 ├── package.json
-├── lerna.json (optional, if using Lerna)
 ├── README.md
 └── .gitignore
 ```
