@@ -2,7 +2,7 @@
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', sans-serif; /* Using Roboto for general body text */
   background-color: #1e1e1e;
   color: #ffffff;
 }
@@ -11,12 +11,12 @@ body {
 .top-nav {
   width: 100%;
   height: 50px;
-  background-color: #2c2c2c;
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Added */
+  justify-content: space-between;
   padding: 0 20px;
   box-sizing: border-box;
+  background-color: #282828;
 }
 .top-nav .nav-left a {
   color: #ffffff;
@@ -24,10 +24,12 @@ body {
   margin-right: 20px;
   font-size: 1em;
   cursor: pointer;
+  font-family: 'Oswald', sans-serif; /* Using Oswald for navigation links */
 }
 .top-nav .nav-right {
   color: #ffffff;
   font-size: 1em;
+  font-family: 'Roboto', sans-serif;
 }
 
 /* Left Sidebar */
@@ -35,7 +37,7 @@ body {
   width: 250px;
   background-color: #1a1a1a;
   position: fixed;
-  top: 50px; /* Below the nav bar */
+  top: 50px;
   bottom: 0;
   left: 0;
   padding: 20px;
@@ -45,20 +47,28 @@ body {
   width: 100%;
   max-width: 200px;
   margin-bottom: 20px;
+  border-radius: 5px;
 }
 .sidebar h2 {
   margin-top: 0;
   font-size: 1.5em;
+  font-family: 'Bebas Neue', sans-serif; /* Using Bebas Neue for sidebar titles */
 }
 .sidebar p {
   margin: 5px 0;
+  font-family: 'Roboto', sans-serif;
 }
 .sidebar button {
   margin-top: 20px;
   padding: 10px;
   width: 100%;
-  font-size: 1em;
+  font-size: 1.2em;
   cursor: pointer;
+  font-family: 'Bebas Neue', sans-serif; /* Using Bebas Neue for buttons */
+  background-color: #007bff;
+  border: none;
+  color: white;
+  border-radius: 5px;
 }
 
 /* Main Content */
@@ -66,6 +76,10 @@ body {
   margin-left: 250px; /* Width of the sidebar */
   margin-top: 50px; /* Height of the nav bar */
   padding: 20px;
+}
+.main-content h1 {
+  font-size: 2em;
+  font-family: 'Bebas Neue', sans-serif; /* Using Bebas Neue for main headings */
 }
 
 /* Progress Bar */

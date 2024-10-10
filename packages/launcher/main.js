@@ -7,12 +7,15 @@ const crypto = require('crypto');
 let mainWindow;
 
 // Enable hot reload for development
-if (process.env.NODE_ENV === 'development') {
-const path = require('path');
-require('electron-reload')(__dirname, {
-    electron: require(path.join(__dirname, 'node_modules', 'electron'))
-});
-};
+if (!app.isPackaged) {
+    const path = require('path');
+
+    console.log('process.execPath:', process.execPath); // Debugging line
+
+    require('electron-reload')(__dirname, {
+        electron: process.execPath
+    });
+}
 
 // Replace with your server's IP or URL
 const SERVER_IP = 'http://localhost:3000'; // Example: 'http://localhost:3000'
@@ -79,7 +82,7 @@ ipcMain.handle('launch-game', async () => {
             spawn('xdg-open', [executablePath], { detached: true });
         }
 
-        // Optionally quit the launcher
+        // Optionally quit the launcher (still deciding)
         // app.quit();
 
         return { success: true };
@@ -93,6 +96,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
         height: 600,
+        icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false, // Disable Node.js integration
@@ -102,8 +106,9 @@ function createWindow() {
 
     mainWindow.loadFile('index.html');
 
-    // Optional: Open DevTools for debugging
-    mainWindow.webContents.openDevTools();
+    if (!app.isPackaged) {
+        mainWindow.webContents.openDevTools();
+    }
 }
 
 app.whenReady().then(() => {

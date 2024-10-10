@@ -5,12 +5,14 @@
     "packages/*"
   ],
   "scripts": {
-    "start:server": "npm run start --workspace=packages/server",
-    "generate:manifest": "npm run generate --workspace=packages/generator",
-    "build:generator": "npm run build --workspace=packages/generator",
-    "build:launcher": "npm run build --workspace=packages/launcher",
-    "build": "npm run build:generator && npm run build:launcher",
-    "start": "npm run start:server"
-  },
-  "dependencies": {}
+  "start:server": "npm run start --workspace=packages/server",
+  "generate:manifest": "npm run generate --workspace=packages/generator",
+  "build:generator": "npm run build --workspace=packages/generator",
+  "build:launcher": "electron-builder --config=packages/launcher/electron-builder.json --win --x64",
+  "build": "npm run build:generator && npm run build:launcher",
+  "start": "npm run start:server"
+},
+  "devDependencies": {
+    "electron-builder": "^25.1.7"
+  }
 }

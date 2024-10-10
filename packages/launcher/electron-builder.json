@@ -1,0 +1,36 @@
+{
+  "appId": "com.arcanenexus.launcher",
+  "productName": "ArcaneNexus Launcher",
+  "electronVersion": "32.1.2",
+  "directories": {
+    "app": "packages/launcher",
+    "output": "packages/launcher/dist"
+  },
+  "files": [
+    "**/*",
+    "!node_modules",
+    "!package-lock.json",
+    "!**/node_modules/*/{test,tests}/**",
+    "!../**",
+    "!../../**",
+    "!**/*.md",
+    "!**/*.map"
+  ],
+  "mac": {
+    "target": "dmg"
+  },
+  "win": {
+    "icon": "packages/launcher/assets/icons/icon.png",
+    "target": [
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "linux": {
+    "target": "AppImage"
+  },
+  "npmRebuild": false,
+  "buildDependenciesFromSource": false
+}
