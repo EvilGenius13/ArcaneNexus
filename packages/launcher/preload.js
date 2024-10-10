@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     onDownloadStarted: (callback) => ipcRenderer.on('download-started', (event, data) => callback(data)),
     onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, data) => callback(data)),
+    onDownloadProgressSize: (callback) => ipcRenderer.on('download-progress-size', (event, data) => callback(data)),
     onDownloadError: (callback) => ipcRenderer.on('download-error', (event, data) => callback(data)),
     onDownloadComplete: (callback) => ipcRenderer.on('download-complete', () => callback()),
     launchGame: () => ipcRenderer.invoke('launch-game'),
