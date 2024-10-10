@@ -18,7 +18,7 @@ if (!app.isPackaged) {
 }
 
 // Replace with your server's IP or URL
-const SERVER_IP = 'http://localhost:3000'; // Example: 'http://localhost:3000'
+const SERVER_IP = 'http://192.168.1.108:3000'; // Example: 'http://localhost:3000'
 
 // Get the user data path for storing configuration
 const userDataPath = app.getPath('userData');
@@ -230,9 +230,19 @@ function cleanUpFiles(destination, manifestFiles) {
 }
 
 // IPC Handler: Download Files
+// IPC Handler: Download Files
 ipcMain.on('download-files', async (event, manifest, destination) => {
     let errorsOccurred = false; // Flag to track errors
     let downloadedFiles = 0;
+    let totalBytesToDownload = 0;
+    let totalBytesDownloaded = 0;
+
+    // Variables for download speed calculation
+    let bytesDownloadedSinceLastUpdate = 0;
+    let downloadSpeed = 0; // in bytes per second
+
+    // Timer reference
+    let progressTimer = null;
 
     // Determine which files need to be downloaded
     let filesToDownload = [];
@@ -249,18 +259,18 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
 
         if (shouldDownload) {
             filesToDownload.push(file);
+            totalBytesToDownload += file.size;
         }
     }
 
-    const totalFiles = filesToDownload.length;
-
     // Send initial progress update to renderer
     mainWindow.webContents.send('download-started', {
-        total: totalFiles
+        totalFiles: filesToDownload.length,
+        totalBytes: totalBytesToDownload
     });
 
     // If there are no files to download, send 'download-complete' and return
-    if (totalFiles === 0) {
+    if (filesToDownload.length === 0) {
         mainWindow.webContents.send('download-complete');
 
         // Update the stored manifest and config if no errors occurred
@@ -272,6 +282,25 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
 
         return;
     }
+
+    // Start the progress timer to send updates every second
+    progressTimer = setInterval(() => {
+        // Calculate download speed
+        downloadSpeed = bytesDownloadedSinceLastUpdate; // bytes per second
+
+        // Remaining bytes
+        const remainingBytes = totalBytesToDownload - totalBytesDownloaded;
+        const safeRemainingBytes = remainingBytes > 0 ? remainingBytes : 0;
+
+        // Send progress update to renderer
+        mainWindow.webContents.send('download-progress-size', {
+            remainingBytes: safeRemainingBytes,
+            downloadSpeed: downloadSpeed
+        });
+
+        // Reset the counter for the next interval
+        bytesDownloadedSinceLastUpdate = 0;
+    }, 1000); // 1000 ms = 1 second
 
     // Loop over filesToDownload
     for (const file of filesToDownload) {
@@ -289,6 +318,12 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
                 method: 'GET',
                 responseType: 'stream',
                 timeout: 10000
+            });
+
+            // Track bytes downloaded for the current file
+            response.data.on('data', (chunk) => {
+                totalBytesDownloaded += chunk.length;
+                bytesDownloadedSinceLastUpdate += chunk.length;
             });
 
             response.data.pipe(writer);
@@ -309,10 +344,10 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
 
             downloadedFiles++;
 
-            // Send progress update to renderer
+            // Send file count progress update to renderer
             mainWindow.webContents.send('download-progress', {
-                downloaded: downloadedFiles,
-                total: totalFiles
+                downloadedFiles: downloadedFiles,
+                totalFiles: filesToDownload.length
             });
 
         } catch (error) {
@@ -329,6 +364,17 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
             }
         }
     }
+
+    // Clear the progress timer as the download is complete
+    if (progressTimer) {
+        clearInterval(progressTimer);
+    }
+
+    // Final progress update to set remaining bytes to 0
+    mainWindow.webContents.send('download-progress-size', {
+        remainingBytes: 0,
+        downloadSpeed: 0
+    });
 
     // Notify renderer that download is complete
     mainWindow.webContents.send('download-complete');

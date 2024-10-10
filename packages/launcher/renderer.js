@@ -21,6 +21,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     let totalFiles = 0;
     let downloadedFiles = 0;
+    let totalBytes = 0;
+    let remainingBytes = 0; // Remaining bytes to download
+    let downloadSpeed = 0; // Current download speed in bytes per second
     let manifest = null;
 
     // Flag to track if errors occurred during download
@@ -146,6 +149,9 @@ window.addEventListener('DOMContentLoaded', async () => {
             // Reset UI
             errorsOccurredDuringDownload = false; // Reset error flag
             downloadInfo.style.display = 'none'; // Hide until download starts
+            downloadCount.textContent = 'Remaining: 0 MB | Speed: 0 MB/s';
+            progressBar.style.width = '0%'; // Start at 0% and increment
+            errorLog.innerHTML = ''; // Clear previous errors
 
             // Start Download
             window.electronAPI.downloadFiles(manifest, destination);
@@ -171,19 +177,38 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Listen for Download Started
     window.electronAPI.onDownloadStarted((data) => {
-        totalFiles = data.total;
-        downloadedFiles = 0;
-        downloadCount.textContent = `Downloaded ${downloadedFiles}/${totalFiles} files.`;
-        progressBar.style.width = '0%';
+        totalFiles = data.totalFiles;
+        totalBytes = data.totalBytes;
+        remainingBytes = totalBytes; // Initialize remaining bytes
+
+        downloadCount.textContent = `Remaining: ${formatBytes(remainingBytes)} | Speed: 0 MB/s`;
+        progressBar.style.width = '0%'; // Start at 0% and increment
+
         downloadInfo.style.display = 'block';
     });
 
-    // Listen for Download Progress
+    // Listen for Download Progress (File Count)
     window.electronAPI.onDownloadProgress((data) => {
-        downloadedFiles = data.downloaded;
-        totalFiles = data.total;
-        downloadCount.textContent = `Downloaded ${downloadedFiles}/${totalFiles} files.`;
-        const percent = totalFiles > 0 ? (downloadedFiles / totalFiles) * 100 : 100;
+        downloadedFiles = data.downloadedFiles;
+        // Optionally, you can also display file count progress
+        // For this implementation, we'll focus on size-based countdown
+    });
+
+    // Listen for Download Progress (Size)
+    window.electronAPI.onDownloadProgressSize((data) => {
+        remainingBytes = data.remainingBytes;
+        downloadSpeed = data.downloadSpeed;
+
+        // Calculate downloaded bytes
+        const downloadedBytes = totalBytes - remainingBytes;
+
+        // Calculate percentage completed
+        const percent = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 100;
+
+        // Update download count with remaining bytes and speed
+        downloadCount.textContent = `Remaining: ${formatBytes(remainingBytes)} | Speed: ${formatSpeed(downloadSpeed)}`;
+
+        // Update progress bar based on downloaded bytes
         progressBar.style.width = `${percent}%`;
     });
 
@@ -208,6 +233,30 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         initialize(); // Re-initialize to update status
     });
+
+    // Helper function to format bytes
+    function formatBytes(bytes) {
+        if (bytes >= 1e9) {
+            return (bytes / 1e9).toFixed(2) + ' GB';
+        } else if (bytes >= 1e6) {
+            return (bytes / 1e6).toFixed(2) + ' MB';
+        } else if (bytes >= 1e3) {
+            return (bytes / 1e3).toFixed(2) + ' KB';
+        } else {
+            return bytes + ' B';
+        }
+    }
+
+    // Helper function to format download speed
+    function formatSpeed(bytesPerSecond) {
+        if (bytesPerSecond >= 1e6) {
+            return (bytesPerSecond / 1e6).toFixed(2) + ' MB/s';
+        } else if (bytesPerSecond >= 1e3) {
+            return (bytesPerSecond / 1e3).toFixed(2) + ' KB/s';
+        } else {
+            return bytesPerSecond + ' B/s';
+        }
+    }
 
     // Initialize the application
     initialize();
