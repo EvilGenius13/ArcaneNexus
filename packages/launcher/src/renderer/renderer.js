@@ -71,7 +71,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     navSettings.addEventListener('click', (event) => {
         event.preventDefault();
-        showContent('settings');
+        // Send IPC message to open Settings window
+        window.electronAPI.openSettings();
     });
 
     // Initialize: Check Server Status

@@ -3,8 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const crypto = require('crypto');
+const { Throttle } = require('stream-throttle');
+const transform = require('stream-transform');
+
 
 let mainWindow;
+let settingsWindow;
 
 // Enable hot reload for development
 if (!app.isPackaged) {
@@ -18,7 +22,7 @@ if (!app.isPackaged) {
 }
 
 // Replace with your server's IP or URL
-const SERVER_IP = 'http://192.168.1.108:3000'; // Example: 'http://localhost:3000'
+const SERVER_IP = 'https://api-arcane-nexus.timewellspent.ca'; // Example: 'http://localhost:3000'
 
 // Get the user data path for storing configuration
 const userDataPath = app.getPath('userData');
@@ -92,6 +96,7 @@ ipcMain.handle('launch-game', async () => {
     }
 });
 
+// Function to create the main window
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
@@ -106,10 +111,46 @@ function createWindow() {
 
     mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-
     if (!app.isPackaged) {
         mainWindow.webContents.openDevTools();
     }
+
+    // Handle window closed
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+}
+
+// Function to create the Settings window
+function createSettingsWindow() {
+    if (settingsWindow) {
+        settingsWindow.focus();
+        return;
+    }
+
+    settingsWindow = new BrowserWindow({
+        width: 500,
+        height: 400,
+        parent: mainWindow,
+        modal: true,
+        show: false,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            nodeIntegration: false, // Disable Node.js integration
+            contextIsolation: true, // Enable context isolation
+        }
+    });
+
+    settingsWindow.loadFile(path.join(__dirname, 'renderer', 'settings.html'));
+
+    settingsWindow.once('ready-to-show', () => {
+        settingsWindow.show();
+    });
+
+    // Handle window closed
+    settingsWindow.on('closed', () => {
+        settingsWindow = null;
+    });
 }
 
 app.whenReady().then(() => {
@@ -184,6 +225,11 @@ ipcMain.handle('set-config', async (event, newConfig) => {
     writeConfig(config);
 });
 
+// IPC Handler: Open Settings Window
+ipcMain.on('open-settings', () => {
+    createSettingsWindow();
+});
+
 // Function to compute SHA-256 hash of a file
 function computeFileHash(filePath) {
     return new Promise((resolve, reject) => {
@@ -231,8 +277,9 @@ function cleanUpFiles(destination, manifestFiles) {
 }
 
 // IPC Handler: Download Files
-// IPC Handler: Download Files
 ipcMain.on('download-files', async (event, manifest, destination) => {
+    const { Throttle } = require('stream-throttle');
+
     let errorsOccurred = false; // Flag to track errors
     let downloadedFiles = 0;
     let totalBytesToDownload = 0;
@@ -307,50 +354,60 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
     for (const file of filesToDownload) {
         const fileUrl = `${SERVER_IP}/public_files/${file.path}`;
         const destPath = path.join(destination, file.path);
-
+    
         try {
             // Ensure the directory exists
             fs.mkdirSync(path.dirname(destPath), { recursive: true });
-
+    
             const writer = fs.createWriteStream(destPath);
-
+    
             const response = await axios({
                 url: fileUrl,
                 method: 'GET',
                 responseType: 'stream',
                 timeout: 10000
             });
-
+    
+            let throttleStream = null;
+    
+            // Apply throttling if maxDownloadSpeed is set
+            if (config.maxDownloadSpeed) {
+                // Convert MB/s to bytes/s
+                const bytesPerSecond = config.maxDownloadSpeed * 1e6;
+                throttleStream = new Throttle({ rate: bytesPerSecond });
+                response.data = response.data.pipe(throttleStream);
+            }
+    
             // Track bytes downloaded for the current file
             response.data.on('data', (chunk) => {
                 totalBytesDownloaded += chunk.length;
                 bytesDownloadedSinceLastUpdate += chunk.length;
             });
-
+    
             response.data.pipe(writer);
-
+    
             // Wait for the download to finish
             await new Promise((resolve, reject) => {
                 writer.on('finish', resolve);
                 writer.on('error', reject);
             });
-
+    
             // Compute the hash of the downloaded file
             const computedHash = await computeFileHash(destPath);
-
+    
             // Compare with the hash in the manifest
             if (computedHash !== file.hash) {
                 throw new Error('Hash mismatch');
             }
-
+    
             downloadedFiles++;
-
+    
             // Send file count progress update to renderer
             mainWindow.webContents.send('download-progress', {
                 downloadedFiles: downloadedFiles,
                 totalFiles: filesToDownload.length
             });
-
+    
         } catch (error) {
             errorsOccurred = true; // Set the error flag
             console.error(`Error downloading ${file.path}:`, error.message);
@@ -358,7 +415,7 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
                 file: file.path,
                 error: error.message
             });
-
+    
             // Delete the corrupted file
             if (fs.existsSync(destPath)) {
                 fs.unlinkSync(destPath);

@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     launchGame: () => ipcRenderer.invoke('launch-game'),
     getConfig: () => ipcRenderer.invoke('get-config'),
     setConfig: (config) => ipcRenderer.invoke('set-config', config),
+    openSettings: () => ipcRenderer.send('open-settings') // New method to open Settings
 });

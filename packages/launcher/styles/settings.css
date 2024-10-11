@@ -1,0 +1,83 @@
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background-color: #1e1e1e;
+  color: #ffffff;
+}
+
+.settings-container {
+  padding: 20px;
+}
+
+h1 {
+  font-size: 2em;
+  margin-bottom: 20px;
+}
+
+.setting-item {
+  margin-bottom: 15px;
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.setting-item input {
+  padding: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #ffffff;
+}
+
+.setting-item button {
+  margin-top: 5px;
+  padding: 8px 12px;
+  background-color: #007bff;
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.setting-item button:hover {
+  background-color: #0056b3;
+}
+
+.buttons {
+  margin-top: 20px;
+}
+
+.buttons button {
+  padding: 10px 20px;
+  margin-right: 10px;
+  background-color: #28a745;
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.buttons button:hover {
+  background-color: #1e7e34;
+}
+
+#cancel-settings {
+  background-color: #dc3545;
+}
+
+#cancel-settings:hover {
+  background-color: #c82333;
+}
+
+#settings-error-log {
+  margin-top: 20px;
+  color: #ff4c4c;
+  max-height: 150px;
+  overflow-y: auto;
+  text-align: left;
+}
