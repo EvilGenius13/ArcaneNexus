@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Arcane Nexus Launcher</title>
+    <!-- Link to external stylesheet -->
+    <link rel="stylesheet" href="../../assets/styles/settings.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="settings-container">
+        <h1>Settings</h1>
+        
+        <div class="setting-item">
+            <label for="max-download-speed">Max Download Speed (MB/s):</label>
+            <input type="number" id="max-download-speed" min="1" max="100" value="50">
+        </div>
+        
+        <div class="setting-item">
+            <label for="install-directory">Install Directory:</label>
+            <input type="text" id="install-directory" readonly>
+            <button id="change-directory">Change</button>
+        </div>
+        
+        <div class="buttons">
+            <button id="save-settings">Save</button>
+            <button id="cancel-settings">Cancel</button>
+        </div>
+        
+        <div id="settings-error-log"></div>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>
