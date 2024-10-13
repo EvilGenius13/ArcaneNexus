@@ -1,6 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+require("dotenv").config();
 
 /**
  * Generates SHA-256 hash for a given file.
@@ -9,9 +10,9 @@ const crypto = require('crypto');
  */
 function generateFileHash(filePath) {
   const fileBuffer = fs.readFileSync(filePath);
-  const hashSum = crypto.createHash('sha256');
+  const hashSum = crypto.createHash("sha256");
   hashSum.update(fileBuffer);
-  return hashSum.digest('hex');
+  return hashSum.digest("hex");
 }
 
 /**
@@ -22,31 +23,33 @@ function generateFileHash(filePath) {
  * @returns {Array} - Array of file objects with relative paths.
  */
 function scanDirectory(dir, baseDir, ignoreFiles = []) {
-    let filesList = [];
-    const files = fs.readdirSync(dir);
+  let filesList = [];
+  const files = fs.readdirSync(dir);
 
-    files.forEach((file) => {
-        const fullPath = path.join(dir, file);
-        const stats = fs.statSync(fullPath);
+  files.forEach((file) => {
+    const fullPath = path.join(dir, file);
+    const stats = fs.statSync(fullPath);
 
-        // Skip files based on the ignore list
-        if (shouldSkipFile(file, ignoreFiles)) {
-            return;
-        }
+    // Skip files based on the ignore list
+    if (shouldSkipFile(file, ignoreFiles)) {
+      return;
+    }
 
-        if (stats.isDirectory()) {
-            filesList = filesList.concat(scanDirectory(fullPath, baseDir, ignoreFiles));
-        } else {
-            const relativePath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
-            filesList.push({
-                path: relativePath,
-                size: stats.size,
-                hash: generateFileHash(fullPath),
-            });
-        }
-    });
+    if (stats.isDirectory()) {
+      filesList = filesList.concat(
+        scanDirectory(fullPath, baseDir, ignoreFiles)
+      );
+    } else {
+      const relativePath = path.relative(baseDir, fullPath).replace(/\\/g, "/");
+      filesList.push({
+        path: relativePath,
+        size: stats.size,
+        hash: generateFileHash(fullPath),
+      });
+    }
+  });
 
-    return filesList;
+  return filesList;
 }
 
 /**
@@ -56,40 +59,74 @@ function scanDirectory(dir, baseDir, ignoreFiles = []) {
  * @returns {boolean} - True if the file should be skipped, false otherwise.
  */
 function shouldSkipFile(fileName, ignoreFiles) {
-    return ignoreFiles.some((pattern) => {
-        if (pattern.startsWith('.')) {
-            // Match by extension
-            return fileName.endsWith(pattern);
-        } else {
-            // Match by exact file name
-            return fileName === pattern;
-        }
-    });
+  return ignoreFiles.some((pattern) => {
+    if (pattern.startsWith(".")) {
+      // Match by extension
+      return fileName.endsWith(pattern);
+    } else {
+      // Match by exact file name
+      return fileName === pattern;
+    }
+  });
 }
 
+// Load variables from environment
+const projectName = process.env.PROJECT_NAME || "Project_Name";
+const version = process.env.VERSION || "1.0.0";
+const pathToProject =
+  process.env.PATH_TO_PROJECT ||
+  "/Users/[USER]/dev/ArcaneNexus/packages/server/public_files/your-project-windows";
+const pathToProjectLogo = process.env.PATH_TO_PROJECT_LOGO || "";
+const pathToProjectImageURL = process.env.PATH_TO_PROJECT_IMAGE_URL || "";
+const executablePath = process.env.EXECUTABLE_PATH || "/bin/sample.pdf";
+
 // Configuration
-const folderToScan = '/Users/jaina/Documents/example'; // <--- Change Me
-const outputManifest = path.join(__dirname, 'manifest.json');
+const folderToScan = pathToProject;
+const outputFolder = path.join(
+  __dirname,
+  `../server/output_manifests/${projectName}`
+);
+const outputManifest = path.join(
+  outputFolder,
+  `${projectName}_${version}_manifest.json`
+);
+
+// Ensure the output folder exists, create it if not
+if (!fs.existsSync(outputFolder)) {
+  fs.mkdirSync(outputFolder, { recursive: true });
+}
+
+// Check if a manifest with the same project name and version already exists
+if (fs.existsSync(outputManifest)) {
+  console.error(
+    `Error: A manifest for project "${projectName}" version "${version}" already exists at ${outputManifest}. Please update the version number.`
+  );
+  process.exit(1);
+}
 
 // Files or extensions to skip
-const ignoreList = ['.DS_Store', '.log', '.tmp'];
+const ignoreList = [".DS_Store", ".log", ".tmp"];
 
 // Verify the folder exists
 if (!fs.existsSync(folderToScan)) {
-    console.error(`The folder ${folderToScan} does not exist.`);
-    process.exit(1);
+  console.error(`The folder ${folderToScan} does not exist.`);
+  process.exit(1);
 }
 
 console.log(`Scanning folder: ${folderToScan}`);
 
-// Generate Manifest (These will turn into environment variables later)
+// Generate Manifest
 const manifest = {
-    generatedAt: new Date().toISOString(),
-    version: '1.0.1',
-    executablePath: "/bin/sample.pdf",
-    files: scanDirectory(folderToScan, folderToScan, ignoreList),
+  generatedAt: new Date().toISOString(),
+  projectName: projectName,
+  version: version,
+  pathToProject: pathToProject,
+  pathToProjectLogo: pathToProjectLogo,
+  pathToProjectImageURL: pathToProjectImageURL,
+  executablePath: executablePath,
+  files: scanDirectory(folderToScan, folderToScan, ignoreList),
 };
 
-fs.writeFileSync(outputManifest, JSON.stringify(manifest, null, 2), 'utf-8');
+fs.writeFileSync(outputManifest, JSON.stringify(manifest, null, 2), "utf-8");
 
 console.log(`Manifest generated at ${outputManifest}`);

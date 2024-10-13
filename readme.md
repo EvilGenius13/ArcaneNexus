@@ -60,3 +60,10 @@ This command installs dependencies for all workspaces (server, generator, launch
 cd packages/server
 ```
 - Create a `.env` file based on `.env.example` and configure your environment variables.
+
+### 📝 How to generate a manifest and run the launcher [Development doc]
+1. In `/packages/generator`, create a `.env` file based on `.env.example` and configure your environment variables.
+2. Cd into `/packages/generator` and run `node generateManifest.js` to generate the manifest.
+3. Cd back to root folder then run `npm run build:laucher`.
+4. Run `npm run start` in root to start the server.
+5. Open application generated in `packages/launcher/dist` and enjoy!

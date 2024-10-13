@@ -1,4 +1,12 @@
 node_modules
 .env
 /packages/launcher/dist
+/packages/server/public_files
+/packages/server/output_manifests
 .DS_Store
+
+# Ignore all files in the public folder
+/public/*
+
+# Do not ignore the public folder itself
+!/public/
