@@ -7,8 +7,8 @@ node_modules
 
 # Ignore all files in these folders
 /public/*
-/output_manifests/*
+/packages/server/output_manifests/*
 
 # Do not ignore the folders itself
 !/public/
-!/output_manifests/
+!/packages/server/output_manifests
