@@ -7,12 +7,22 @@ const PORT = 3000;
 
 const storagePath = "public_files/the-corridor-demo-windows";
 
-// Serve the manifest.json - Work on versioning in future
+// Serve the manifest.json
 app.get("/manifest.json", (req, res) => {
+  const projectName = req.query.projectName;
+  const version = req.query.version;
+
+  if (!projectName || !version) {
+    return res
+      .status(400)
+      .send({ error: "Project name and version are required." });
+  }
+
   const manifestPath = path.join(
     __dirname,
-    "/output_manifests/The_Corridor/The_Corridor_1.0.1_manifest.json"
+    `/output_manifests/${projectName}/${projectName}_${version}_manifest.json`
   );
+
   if (fs.existsSync(manifestPath)) {
     res.sendFile(manifestPath);
   } else {
@@ -22,6 +32,38 @@ app.get("/manifest.json", (req, res) => {
 
 // Serve static files from public_files
 app.use("/public_files", express.static(path.join(__dirname, storagePath)));
+
+// Grabs each project and returns project list with nested metadata
+app.get("/project_list", (req, res) => {
+  const outputFolder = path.join(__dirname, "/output_manifests/");
+  const projects = fs.readdirSync(outputFolder);
+  const projectDict = {};
+
+  projects.forEach((project) => {
+    const gameFolder = path.join(outputFolder, project);
+    const files = fs.readdirSync(gameFolder);
+
+    files.forEach((file) => {
+      if (path.extname(file) === ".json") {
+        const manifestPath = path.join(gameFolder, file);
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+
+        if (!projectDict[project]) {
+          projectDict[project] = [];
+        }
+
+        projectDict[project].push({
+          generatedAt: manifest.generatedAt,
+          version: manifest.version,
+          pathToProjectLogo: manifest.pathToProjectLogo,
+          pathToProjectImageURL: manifest.pathToProjectImageURL,
+        });
+      }
+    });
+  });
+
+  res.send(projectDict);
+});
 
 // Health Check Endpoint
 app.get("/", (req, res) => {
