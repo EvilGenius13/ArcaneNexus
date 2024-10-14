@@ -71,7 +71,7 @@ function shouldSkipFile(fileName, ignoreFiles) {
 }
 
 // Load variables from environment
-const projectName = process.env.PROJECT_NAME || "Project_Name";
+const projectName = (process.env.PROJECT_NAME || "project_name").toLowerCase();
 const version = process.env.VERSION || "1.0.0";
 const pathToProject =
   process.env.PATH_TO_PROJECT ||
