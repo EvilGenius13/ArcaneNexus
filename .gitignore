@@ -5,8 +5,10 @@ node_modules
 /packages/server/output_manifests
 .DS_Store
 
-# Ignore all files in the public folder
+# Ignore all files in these folders
 /public/*
+/output_manifests/*
 
-# Do not ignore the public folder itself
+# Do not ignore the folders itself
 !/public/
+!/output_manifests/
