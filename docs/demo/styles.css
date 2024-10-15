@@ -1,8 +1,24 @@
+/* Reset body styles */
 body {
   margin: 0;
   font-family: 'Roboto', sans-serif;
   background-color: #1e1e1e;
   color: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* Full viewport height */
+}
+
+/* App Container */
+.app-container {
+  width: 800px;
+  height: 600px;
+  background-color: #1e1e1e;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid #444; /* Optional border to mimic app window */
 }
 
 /* Top Navigation Bar */
@@ -15,7 +31,11 @@ body {
   padding: 0 20px;
   box-sizing: border-box;
   background-color: #282828;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
+
 .top-nav .nav-left a {
   color: #ffffff;
   text-decoration: none;
@@ -24,6 +44,7 @@ body {
   cursor: pointer;
   font-family: 'Oswald', sans-serif;
 }
+
 .top-nav .nav-right {
   color: #ffffff;
   font-size: 1em;
@@ -34,28 +55,33 @@ body {
 .sidebar {
   width: 250px;
   background-color: #1a1a1a;
-  position: fixed;
-  top: 50px;
+  position: absolute;
+  top: 50px; /* Below the nav bar */
   bottom: 0;
   left: 0;
   padding: 20px;
   box-sizing: border-box;
+  overflow-y: auto;
 }
+
 .sidebar img {
   width: 100%;
   max-width: 200px;
   margin-bottom: 20px;
   border-radius: 5px;
 }
+
 .sidebar h2 {
   margin-top: 0;
   font-size: 1.5em;
   font-family: 'Bebas Neue', sans-serif;
 }
+
 .sidebar p {
   margin: 5px 0;
   font-family: 'Roboto', sans-serif;
 }
+
 .sidebar button {
   margin-top: 20px;
   padding: 10px;
@@ -71,10 +97,15 @@ body {
 
 /* Main Content */
 .main-content {
-  margin-left: 250px;
-  margin-top: 50px;
+  position: absolute;
+  left: 250px; /* Width of the sidebar */
+  top: 50px; /* Height of the nav bar */
+  right: 0;
+  bottom: 0;
   padding: 20px;
+  overflow-y: auto;
 }
+
 .main-content h1 {
   font-size: 2em;
   font-family: 'Bebas Neue', sans-serif;
@@ -89,6 +120,7 @@ body {
   overflow: hidden;
   margin-top: 20px;
 }
+
 .progress-bar {
   height: 100%;
   width: 0%;
