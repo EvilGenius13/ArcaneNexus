@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let downloadedFiles = 0;
   let totalBytes = 500 * 1e6; // Simulated total size: 500 MB
   let remainingBytes = totalBytes;
-  let downloadSpeed = 15 * 1e6; // Simulated download speed: 5 MB/s
+  let downloadSpeed = 25 * 1e6; // Simulated download speed: 25 MB/s
   let manifest = null;
 
   // Flag to track if errors occurred during download
