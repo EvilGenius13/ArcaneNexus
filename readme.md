@@ -9,6 +9,9 @@ ArcaneNexus is a custom game launcher inspired by World of Warcraft. It integrat
 - (Coming Soon) Docker Support: Easily deploy and manage the server using Docker Compose.
 - Modular Monorepo: Organized with npm workspaces for streamlined dependency management and development.
 
+## 💻 Web Demo
+If you want to see a web version of the app with limited functionality, you can check it out [here](https://evilgenius13.github.io/ArcaneNexus/demo/).
+
 ### 📁 Directory Structure
 ```
 ArcaneNexus/
