@@ -3,6 +3,7 @@ node_modules
 /packages/launcher/dist
 /packages/server/public_files
 /packages/server/output_manifests
+/deployment/local/data
 .DS_Store
 
 # Ignore all files in these folders

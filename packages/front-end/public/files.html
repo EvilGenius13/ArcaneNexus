@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Arcane Nexus File Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        form {
+            max-width: 500px;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            margin: 6px 0 12px 0;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload Game Assets</h2>
+    <form id="uploadForm" action="http://localhost:3000/api/files/upload" method="POST" enctype="multipart/form-data">
+        <label for="gameName">Game Name:</label>
+        <input type="text" id="gameName" name="gameName" required>
+
+        <label for="versionName">Version Number:</label>
+        <input type="text" id="versionName" name="versionName" required>
+
+        <label for="files">Select Files:</label>
+        <input type="file" id="files" name="files" multiple required>
+
+        <button type="submit">Upload</button>
+    </form>
+
+    <div id="response" class="response" style="display: none;"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const responseDiv = document.getElementById('response');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+
+            try {
+                const res = await fetch('http://localhost:3000/api/files/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    let html = `<h3>${data.message}</h3><ul>`;
+                    data.files.forEach((file) => {
+                        html += `<li><strong>${file.objectName}</strong>: ${file.message}</li>`;
+                    });
+                    html += `</ul>`;
+                    responseDiv.innerHTML = html;
+                } else {
+                    responseDiv.innerHTML = `<h3 style="color: red;">${data.error}</h3>`;
+                }
+
+                responseDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Error:', error);
+                responseDiv.innerHTML = `<h3 style="color: red;">An error occurred while uploading.</h3>`;
+                responseDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
