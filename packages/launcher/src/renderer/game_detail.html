@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arcane Nexus Launcher - Details</title>
+    <link rel="stylesheet" href="../../assets/styles/styles.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400&family=Roboto:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Top Navigation Bar -->
+    <div class="top-nav">
+      <div class="nav-left">
+        <a href="index.html" id="nav-games">Home</a>
+        <a href="#" id="nav-status">Status</a>
+        <a href="#" id="nav-settings">Settings</a>
+      </div>
+      <div class="nav-right">
+        <span id="server-status">Checking server status...</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div id="game-details">
+        <h1 id="game-name">Game Name</h1>
+        <img id="game-logo" src="" alt="Game Logo" />
+        <p id="game-version">Version: N/A</p>
+        <p id="game-status-message">Loading game status...</p>
+        <button id="action-button">Install</button>
+        <div id="download-info" style="display: none">
+          <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+          <p id="download-count">Remaining: 0 MB | Speed: 0 MB/s</p>
+          <div id="error-log"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="game_detail.js"></script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+### Todo:
+
+- [x] Manifest validation
+- [] Uninstall
+- [] Change path
+- [] create folder
+- [x] update option if manifest version changes
+- [] version window
+- [] settings window
+- [] menu window
+- [] news page for patches and will be in json format (need to update server)
+- [] dynamic route for server that pulls version as route
+- [] what happens to server if someone is downloading and we update the manifest
+- [] what happens if someone is downloading and we update the server
