@@ -8,7 +8,7 @@ router.post('/upload', async (req, res) => {
   try {
     await new Promise<void>((resolve, reject) => {
       const busboy = Busboy({ headers: req.headers });
-      const bucketName = 'game-assets';
+      const bucketName = 'game-manifests';
       const files: Array<{ message: string; objectName: string }> = [];
       const fileUploadPromises: Array<Promise<void>> = [];
       let hasFile = false;

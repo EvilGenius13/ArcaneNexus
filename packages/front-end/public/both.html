@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Arcane Nexus Upload and Manifest Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        form {
+            max-width: 600px;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            margin: 6px 0 12px 0;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+        .loading {
+            color: #555;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload Game Assets and Generate Manifest</h2>
+    <form id="uploadManifestForm">
+        <!-- Manifest Generation Fields -->
+        <label for="gameName">Game Name:</label>
+        <input type="text" id="gameName" name="gameName" required />
+
+        <label for="versionName">Version Number:</label>
+        <input type="text" id="versionName" name="versionName" required />
+
+        <label for="pathToProjectLogo">Path to Project Logo (optional):</label>
+        <input type="text" id="pathToProjectLogo" name="pathToProjectLogo" />
+
+        <label for="pathToProjectImageURL">Path to Project Image URL (optional):</label>
+        <input type="text" id="pathToProjectImageURL" name="pathToProjectImageURL" />
+
+        <label for="executablePath">Executable Path (optional):</label>
+        <input type="text" id="executablePath" name="executablePath" />
+
+        <!-- File Selection -->
+        <label for="files">Select Folder:</label>
+        <input
+            type="file"
+            id="files"
+            name="files"
+            webkitdirectory
+            directory
+            multiple
+            required
+        />
+
+        <button type="submit">Generate Manifest and Upload</button>
+    </form>
+
+    <div id="response" class="response" style="display: none;"></div>
+
+    <script>
+        const form = document.getElementById("uploadManifestForm");
+        const responseDiv = document.getElementById("response");
+
+        // List of files to ignore
+        const ignoreList = [".DS_Store", ".log", ".tmp"];
+
+        // Utility function to check if a file should be skipped
+        function shouldSkipFile(fileName, ignoreFiles) {
+            return ignoreFiles.some((pattern) => {
+                if (pattern.startsWith(".")) {
+                    // Match by extension
+                    return fileName.endsWith(pattern);
+                } else {
+                    // Match by exact file name
+                    return fileName === pattern;
+                }
+            });
+        }
+
+        // Event listener for form submission
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            // Extract form values
+            const gameName = document.getElementById("gameName").value.trim();
+            const versionName = document.getElementById("versionName").value.trim();
+            const pathToProjectLogo = document.getElementById("pathToProjectLogo").value.trim();
+            const pathToProjectImageURL = document.getElementById("pathToProjectImageURL").value.trim();
+            const executablePath = document.getElementById("executablePath").value.trim();
+            const filesInput = document.getElementById("files");
+            const files = Array.from(filesInput.files);
+
+            if (files.length === 0) {
+                alert("Please select a folder.");
+                return;
+            }
+
+            // Display initial response message
+            responseDiv.innerHTML = "<p class='loading'>Processing, please wait...</p>";
+            responseDiv.style.display = "block";
+
+            try {
+                // Step 1: Generate Manifest
+                const manifest = await generateManifest({
+                    gameName,
+                    versionName,
+                    pathToProjectLogo,
+                    pathToProjectImageURL,
+                    executablePath,
+                    files,
+                });
+
+                // Step 2: Upload Manifest
+                const manifestResponse = await uploadManifest(manifest, gameName, versionName);
+
+                if (!manifestResponse.ok) {
+                    throw new Error(manifestResponse.error || "Failed to upload manifest.");
+                }
+
+                // Step 3: Upload Files
+                const filesResponse = await uploadFiles(files, gameName, versionName);
+
+                if (!filesResponse.ok) {
+                    throw new Error(filesResponse.error || "Failed to upload files.");
+                }
+
+                // Success Feedback
+                responseDiv.innerHTML = `
+                    <h3 class="success">${manifestResponse.message}</h3>
+                    <h4 class="success">${filesResponse.message}</h4>
+                    <h5>Manifest Upload Details:</h5>
+                    <ul>
+                        ${manifestResponse.files.map(file => `<li><strong>${file.objectName}</strong>: ${file.message}</li>`).join('')}
+                    </ul>
+                    <h5>Files Upload Details:</h5>
+                    <ul>
+                        ${filesResponse.files.map(file => `<li><strong>${file.objectName}</strong>: ${file.message}</li>`).join('')}
+                    </ul>
+                `;
+            } catch (error) {
+                console.error("Error:", error);
+                responseDiv.innerHTML = `<h3 class="error">Error: ${error.message}</h3>`;
+            }
+        });
+
+        // Function to generate the manifest
+        async function generateManifest({
+            gameName,
+            versionName,
+            pathToProjectLogo,
+            pathToProjectImageURL,
+            executablePath,
+            files,
+        }) {
+            const manifest = {
+                generatedAt: new Date().toISOString(),
+                gameName: gameName,
+                versionName: versionName,
+                pathToProjectLogo: pathToProjectLogo || "",
+                pathToProjectImageURL: pathToProjectImageURL || "",
+                executablePath: executablePath || "",
+                files: [],
+            };
+
+            const filePromises = files.map(async (file) => {
+                const relativePath = file.webkitRelativePath || file.name;
+
+                // Skip files based on ignore list
+                if (shouldSkipFile(file.name, ignoreList)) {
+                    return null;
+                }
+
+                const arrayBuffer = await file.arrayBuffer();
+                const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("");
+
+                return {
+                    path: relativePath.replace(/\\/g, "/"),
+                    size: file.size,
+                    hash: hashHex,
+                };
+            });
+
+            const fileEntries = await Promise.all(filePromises);
+            manifest.files = fileEntries.filter((entry) => entry !== null);
+
+            return manifest;
+        }
+
+        // Function to upload the manifest to the server
+        async function uploadManifest(manifest, gameName, versionName) {
+            // Create a JSON file from the manifest
+            const jsonFile = new File(
+                [JSON.stringify(manifest, null, 2)],
+                "manifest.json",
+                {
+                    type: "application/json",
+                }
+            );
+
+            // Prepare FormData
+            const formData = new FormData();
+            formData.append("gameName", gameName);
+            formData.append("versionName", versionName);
+            formData.append("file", jsonFile, "manifest.json");
+
+            // Send the manifest to the server
+            const res = await fetch("http://localhost:3000/api/manifest/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                return {
+                    ok: true,
+                    message: data.message || "Manifest uploaded successfully.",
+                    files: data.files || [],
+                };
+            } else {
+                return {
+                    ok: false,
+                    error: data.error || "Failed to upload manifest.",
+                };
+            }
+        }
+
+        // Function to upload the game asset files to the server
+        async function uploadFiles(files, gameName, versionName) {
+            // Filter out files to ignore and the manifest.json
+            const filteredFiles = files.filter(file => 
+                !shouldSkipFile(file.name, ignoreList) && file.name !== "manifest.json"
+            );
+
+            if (filteredFiles.length === 0) {
+                return {
+                    ok: false,
+                    error: "No files to upload after filtering.",
+                };
+            }
+
+            // Prepare FormData
+            const uploadData = new FormData();
+
+            // Append required form fields
+            uploadData.append('gameName', gameName);
+            uploadData.append('versionName', versionName);
+
+            // Append filtered files
+            filteredFiles.forEach(file => {
+                uploadData.append('files', file);
+            });
+
+            // Send files to the server
+            const res = await fetch('http://localhost:3000/api/files/upload', {
+                method: 'POST',
+                body: uploadData,
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                return {
+                    ok: true,
+                    message: data.message || "Files uploaded successfully.",
+                    files: data.files || [],
+                };
+            } else {
+                return {
+                    ok: false,
+                    error: data.error || "Failed to upload files.",
+                };
+            }
+        }
+    </script>
+</body>
+</html>
