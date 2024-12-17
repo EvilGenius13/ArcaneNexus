@@ -113,7 +113,7 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, "public", "index.html"));
+  mainWindow.loadURL("http://localhost:3000"); // Loads React from server
 
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
@@ -125,37 +125,39 @@ function createWindow() {
   });
 }
 
+// Moved settings window to react
+
 // Function to create the Settings window
-function createSettingsWindow() {
-  if (settingsWindow) {
-    settingsWindow.focus();
-    return;
-  }
+// function createSettingsWindow() {
+//   if (settingsWindow) {
+//     settingsWindow.focus();
+//     return;
+//   }
 
-  settingsWindow = new BrowserWindow({
-    width: 500,
-    height: 400,
-    parent: mainWindow,
-    modal: true,
-    show: false,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      nodeIntegration: false, // Disable Node.js integration
-      contextIsolation: true, // Enable context isolation
-    },
-  });
+//   settingsWindow = new BrowserWindow({
+//     width: 500,
+//     height: 400,
+//     parent: mainWindow,
+//     modal: true,
+//     show: false,
+//     webPreferences: {
+//       preload: path.join(__dirname, "preload.js"),
+//       nodeIntegration: false, // Disable Node.js integration
+//       contextIsolation: true, // Enable context isolation
+//     },
+//   });
 
-  settingsWindow.loadFile(path.join(__dirname, "renderer", "settings.html"));
+//   settingsWindow.loadFile(path.join(__dirname, "renderer", "settings.html"));
 
-  settingsWindow.once("ready-to-show", () => {
-    settingsWindow.show();
-  });
+//   settingsWindow.once("ready-to-show", () => {
+//     settingsWindow.show();
+//   });
 
-  // Handle window closed
-  settingsWindow.on("closed", () => {
-    settingsWindow = null;
-  });
-}
+//   // Handle window closed
+//   settingsWindow.on("closed", () => {
+//     settingsWindow = null;
+//   });
+// }
 
 app.whenReady().then(() => {
   // Read config on app start
@@ -230,10 +232,12 @@ ipcMain.handle("set-config", async (event, newConfig) => {
   writeConfig(config);
 });
 
+// Moved settings window to react
+
 // IPC Handler: Open Settings Window
-ipcMain.on("open-settings", () => {
-  createSettingsWindow();
-});
+// ipcMain.on("open-settings", () => {
+//   createSettingsWindow();
+// });
 
 // Function to compute SHA-256 hash of a file
 function computeFileHash(filePath) {
