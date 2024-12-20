@@ -1,6 +1,7 @@
-import express from "express";
+import express, {Request, Response, NextFunction, RequestHandler} from "express";
 import { minioClient } from "../utils/minio";
 import Busboy from "busboy";
+import path from "path";
 
 const router = express.Router();
 
@@ -16,104 +17,83 @@ router.post("/upload", async (req, res) => {
       let gameName: string | undefined;
       let versionNumber: string | undefined;
 
-      // Handle 'field' events to capture form fields
+      // We'll store relative paths in a queue
+      const relativePathsQueue: string[] = [];
+
       busboy.on("field", (fieldname: string, val: string) => {
         if (fieldname === "gameName") {
           gameName = val.trim();
-          console.log(`Received gameName: ${gameName}`);
         } else if (fieldname === "versionName") {
           versionNumber = val.trim();
-          console.log(`Received versionName: ${versionNumber}`);
+        } else if (fieldname === "filePaths") {
+          relativePathsQueue.push(val.trim());
         }
       });
 
-      // Handle 'file' events to process file uploads
       busboy.on("file", (fieldname: string, file: any, info: any) => {
-        const { filename, encoding, mimeType } = info;
-        console.log(
-          `Receiving file: ${filename} (${mimeType}) under field: ${fieldname}`
-        );
+        console.log(`Starting upload for ${info.filename}`);
+        let bytesRead = 0;
+        const { filename, mimeType } = info;
         hasFile = true;
 
         if (!gameName || !versionNumber) {
-          console.error("Missing gameName or versionName");
-          file.resume(); // Discard the file stream if missing
+          file.resume(); // discard if missing fields
           return;
         }
 
-        // Optional: Validate file types if needed TODO: I don't feel strongly about having this
-        /*
-        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-        if (!allowedTypes.includes(mimeType)) {
-          console.log(`Invalid file type: ${mimeType}. Skipping file: ${filename}`);
-          file.resume(); // Discard the stream
-          return;
-        }
-        */
+        // Pop the corresponding relative path
+        const relativePath = relativePathsQueue.shift() || filename;
 
-        // Sanitize inputs to prevent security issues TODO: Figure out if we can get away with certain patterns
+        // Sanitize inputs
         const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
-        const sanitizedVersionName = versionNumber.replace(
-          /[^a-zA-Z0-9-_]/g,
-          "-"
-        );
-        const objectName = `${sanitizedGameName}_v${sanitizedVersionName}_${filename}`;
+        const sanitizedVersionName = versionNumber.replace(/[^a-zA-Z0-9-_]/g, "-");
+
+        // Incorporate the full relativePath
+        const objectName = `${sanitizedGameName}_${relativePath}`;
+
         const metaData = {
           "Content-Type": mimeType,
-          "X-AN-Meta-Data": "test",
           "X-AN-TimeStamp": new Date().toISOString(),
         };
 
-        // Create a promise for each file upload
-        const uploadPromise = minioClient
-          .putObject(bucketName, objectName, file, undefined, metaData)
+        const uploadPromise = minioClient.putObject(bucketName, objectName, file, undefined, metaData)
           .then(() => {
-            console.log(`File uploaded successfully: ${objectName}`);
             files.push({ message: "File uploaded successfully", objectName });
           })
           .catch((err) => {
-            console.error(`Error uploading file ${objectName}:`, err);
-            throw err; // Propagate the error to be caught in Promise.all
+            throw err;
           });
 
         fileUploadPromises.push(uploadPromise);
       });
 
-      // Handle errors from Busboy
       busboy.on("error", (err: any) => {
-        console.error("Busboy error:", err);
         if (!res.headersSent) {
           res.status(500).json({ error: "Upload failed" });
         }
         reject(err);
       });
 
-      // Handle 'finish' event when Busboy is done parsing the request
       busboy.on("finish", () => {
         if (!hasFile) {
-          console.log("No file uploaded.");
           res.status(400).json({ error: "No file uploaded" });
           return reject(new Error("No file uploaded"));
         }
 
-        // Validate that both gameName and versionNumber are provided
         if (!gameName || !versionNumber) {
-          console.log("Missing gameName or versionNumber.");
           res.status(400).json({ error: "Missing gameName or versionNumber." });
           return reject(new Error("Missing gameName or versionNumber."));
         }
 
-        // Wait for all file uploads to complete
         Promise.all(fileUploadPromises)
           .then(() => {
-            console.log("All files uploaded successfully.");
-            res
-              .status(200)
-              .json({ message: "All files uploaded successfully", files });
+            res.status(200).json({
+              message: "All files uploaded successfully",
+              files
+            });
             resolve();
           })
           .catch((err) => {
-            console.error("Error during file uploads:", err);
             if (!res.headersSent) {
               res.status(500).json({ error: "File upload failed" });
             }
@@ -121,15 +101,50 @@ router.post("/upload", async (req, res) => {
           });
       });
 
-      // Pipe the request stream to Busboy for parsing
       req.pipe(busboy);
     });
-  } catch (err_2) {
-    console.error("Upload process failed:", err_2);
+  } catch (err) {
     if (!res.headersSent) {
-      res.status(500).json({ error: "Internal server error" }); // Ensure a response is sent
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 });
+
+const downloadHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+  const { gameName, versionName } = req.params;
+  const relativePath = (req.params as any)[0];
+
+  if (!gameName || !versionName || !relativePath) {
+    res.status(400).send("Missing required parameters");
+    return; // Return void
+  }
+
+  const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9-_]/g, "-");
+  const objectName = relativePath;
+
+  try {
+    console.log(`Fetching object: ${objectName}`);
+    const objectStream = await minioClient.getObject("game-assets", objectName);
+    const ext = path.extname(objectName);
+    const contentType = ext === ".md" ? "text/markdown" : "application/octet-stream";
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${path.basename(objectName)}"`);
+
+    objectStream.on("error", (err) => {
+      console.error("Error reading object stream:", err);
+      res.status(500).send("Error streaming file");
+    });
+
+    objectStream.pipe(res);
+  } catch (err) {
+    console.error("Error fetching object from MinIO:", err);
+    res.status(404).send("File not found");
+  }
+};
+
+// Use the typed RequestHandler
+router.get("/download/:gameName/:versionName/*", downloadHandler);
 
 export default router;

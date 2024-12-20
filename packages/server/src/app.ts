@@ -3,6 +3,7 @@ import cors from 'cors'
 import adminRoutes from "./routes/admin";
 import routes from "./routes";
 import { initializeBuckets } from "./utils/minio"
+import { initializeDatabase } from "./utils/sqlite";
 
 const app = express();
 const PORT = 3000;
@@ -26,7 +27,13 @@ app.use(express.json());
 
 const startServer = async () => {
   try {
+
+    // Initialize SQLite database
+    await initializeDatabase();
+
+    // Initialize MinIO buckets
     await initializeBuckets([gameFileBucketName, gameManifestBucketName]);
+    
     console.log(`MinIO buckets initialized successfully.`);
     app.listen(PORT, () => {
       console.log(`👾 Server is running on http://localhost:${PORT}`);

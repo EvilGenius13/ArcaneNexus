@@ -1,4 +1,3 @@
-{# TODO: Can maybe do better with file names #}
 <!DOCTYPE html>
 <html>
 <head>
@@ -47,7 +46,6 @@
 <body>
     <h2>Upload Game Assets and Generate Manifest</h2>
     <form id="uploadManifestForm">
-        <!-- Manifest Generation Fields -->
         <label for="gameName">Game Name:</label>
         <input type="text" id="gameName" name="gameName" required />
 
@@ -63,7 +61,9 @@
         <label for="executablePath">Executable Path (optional):</label>
         <input type="text" id="executablePath" name="executablePath" />
 
-        <!-- File Selection -->
+        <label for="description">Description:</label>
+        <input type="text" id="description" name="description" required />
+
         <label for="files">Select Folder:</label>
         <input
             type="file"
@@ -83,32 +83,28 @@
     <script>
         const form = document.getElementById("uploadManifestForm");
         const responseDiv = document.getElementById("response");
-
-        // List of files to ignore
         const ignoreList = [".DS_Store", ".log", ".tmp"];
 
-        // Utility function to check if a file should be skipped
         function shouldSkipFile(fileName, ignoreFiles) {
-            return ignoreFiles.some((pattern) => {
+            return ignoreFiles.some(pattern => {
                 if (pattern.startsWith(".")) {
-                    // Match by extension
                     return fileName.endsWith(pattern);
                 } else {
-                    // Match by exact file name
                     return fileName === pattern;
                 }
             });
         }
 
-        // Event listener for form submission
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
+            responseDiv.style.display = "block";
+            responseDiv.innerHTML = "<p class='loading'>Processing, please wait...</p>";
 
-            // Extract form values
             const gameName = document.getElementById("gameName").value.trim();
             const versionName = document.getElementById("versionName").value.trim();
             const pathToProjectLogo = document.getElementById("pathToProjectLogo").value.trim();
             const pathToProjectImageURL = document.getElementById("pathToProjectImageURL").value.trim();
+            const description = document.getElementById("description").value.trim();
             const executablePath = document.getElementById("executablePath").value.trim();
             const filesInput = document.getElementById("files");
             const files = Array.from(filesInput.files);
@@ -118,186 +114,149 @@
                 return;
             }
 
-            // Display initial response message
-            responseDiv.innerHTML = "<p class='loading'>Processing, please wait...</p>";
-            responseDiv.style.display = "block";
-
             try {
-                // Step 1: Generate Manifest
+                // 1. Generate Manifest
                 const manifest = await generateManifest({
                     gameName,
                     versionName,
                     pathToProjectLogo,
                     pathToProjectImageURL,
                     executablePath,
-                    files,
+                    files
                 });
 
-                // Step 2: Upload Manifest
-                const manifestResponse = await uploadManifest(manifest, gameName, versionName);
-
+                // 2. Upload Manifest
+                const manifestResponse = await uploadManifest({
+                    manifest, 
+                    gameName, 
+                    versionName, 
+                    description
+                });
                 if (!manifestResponse.ok) {
-                    throw new Error(manifestResponse.error || "Failed to upload manifest.");
+                    throw new Error(manifestResponse.error);
                 }
 
-                // Step 3: Upload Files
-                const filesResponse = await uploadFiles(files, gameName, versionName);
-
+                // 3. Upload Files
+                const filesResponse = await uploadFiles({
+                    files,
+                    gameName,
+                    versionName
+                });
                 if (!filesResponse.ok) {
-                    throw new Error(filesResponse.error || "Failed to upload files.");
+                    throw new Error(filesResponse.error);
                 }
 
-                // Success Feedback
                 responseDiv.innerHTML = `
                     <h3 class="success">${manifestResponse.message}</h3>
                     <h4 class="success">${filesResponse.message}</h4>
-                    <h5>Manifest Upload Details:</h5>
-                    <ul>
-                        ${manifestResponse.files.map(file => `<li><strong>${file.objectName}</strong>: ${file.message}</li>`).join('')}
-                    </ul>
-                    <h5>Files Upload Details:</h5>
-                    <ul>
-                        ${filesResponse.files.map(file => `<li><strong>${file.objectName}</strong>: ${file.message}</li>`).join('')}
-                    </ul>
                 `;
             } catch (error) {
                 console.error("Error:", error);
-                responseDiv.innerHTML = `<h3 class="error">Error: ${error.message}</h3>`;
+                responseDiv.innerHTML = `<h3 class='error'>Error: ${error.message}</h3>`;
             }
         });
 
-        // Function to generate the manifest
-        async function generateManifest({
+        async function generateManifest({ 
             gameName,
             versionName,
             pathToProjectLogo,
             pathToProjectImageURL,
             executablePath,
-            files,
+            files 
         }) {
             const manifest = {
                 generatedAt: new Date().toISOString(),
-                gameName: gameName,
-                versionName: versionName,
+                gameName,
+                versionName,
                 pathToProjectLogo: pathToProjectLogo || "",
                 pathToProjectImageURL: pathToProjectImageURL || "",
                 executablePath: executablePath || "",
-                files: [],
+                files: []
             };
 
-            const filePromises = files.map(async (file) => {
-                const relativePath = file.webkitRelativePath || file.name;
+            const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
+            const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9._-]/g, "-");
 
-                // Skip files based on ignore list
-                if (shouldSkipFile(file.name, ignoreList)) {
-                    return null;
-                }
+            // Add a 'v' before the sanitized version
+            const topLevelDir = `${sanitizedGameName}_v${sanitizedVersionName}`;
+
+            const fileEntries = [];
+            for (const file of files) {
+                if (shouldSkipFile(file.name, ignoreList)) continue;
 
                 const arrayBuffer = await file.arrayBuffer();
                 const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const hashHex = hashArray
-                    .map((b) => b.toString(16).padStart(2, "0"))
-                    .join("");
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-                return {
-                    path: relativePath.replace(/\\/g, "/"),
+                let relativePath = file.webkitRelativePath.replace(/\\/g, "/");
+                const parts = relativePath.split('/');
+                parts.shift(); // remove the user's top-level dir
+                relativePath = `${topLevelDir}/${parts.join('/')}`;
+
+                fileEntries.push({
+                    path: relativePath,
                     size: file.size,
-                    hash: hashHex,
-                };
-            });
+                    hash: hashHex
+                });
+            }
 
-            const fileEntries = await Promise.all(filePromises);
-            manifest.files = fileEntries.filter((entry) => entry !== null);
-
+            manifest.files = fileEntries;
             return manifest;
         }
 
-        // Function to upload the manifest to the server
-        async function uploadManifest(manifest, gameName, versionName) {
-            // Create a JSON file from the manifest
-            const jsonFile = new File(
-                [JSON.stringify(manifest, null, 2)],
-                "manifest.json",
-                {
-                    type: "application/json",
-                }
-            );
+        async function uploadManifest({ manifest, gameName, versionName, description }) {
+            const jsonFile = new File([JSON.stringify(manifest, null, 2)], "manifest.json", {
+                type: "application/json",
+            });
 
-            // Prepare FormData
             const formData = new FormData();
             formData.append("gameName", gameName);
             formData.append("versionName", versionName);
+            formData.append("description", description);
             formData.append("file", jsonFile, "manifest.json");
 
-            // Send the manifest to the server
             const res = await fetch("http://localhost:3000/api/manifest/upload", {
                 method: "POST",
-                body: formData,
+                body: formData
             });
 
             const data = await res.json();
-
-            if (res.ok) {
-                return {
-                    ok: true,
-                    message: data.message || "Manifest uploaded successfully.",
-                    files: data.files || [],
-                };
-            } else {
-                return {
-                    ok: false,
-                    error: data.error || "Failed to upload manifest.",
-                };
-            }
+            return res.ok ? 
+                { ok: true, message: data.message } : 
+                { ok: false, error: data.error };
         }
 
-        // Function to upload the game asset files to the server
-        async function uploadFiles(files, gameName, versionName) {
-            // Filter out files to ignore and the manifest.json
+        async function uploadFiles({ files, gameName, versionName }) {
             const filteredFiles = files.filter(file => 
                 !shouldSkipFile(file.name, ignoreList) && file.name !== "manifest.json"
             );
 
             if (filteredFiles.length === 0) {
-                return {
-                    ok: false,
-                    error: "No files to upload after filtering.",
-                };
+                return { ok: false, error: "No files to upload after filtering." };
             }
 
-            // Prepare FormData
-            const uploadData = new FormData();
+            const formData = new FormData();
+            formData.append("gameName", gameName);
+            formData.append("versionName", versionName);
 
-            // Append required form fields
-            uploadData.append('gameName', gameName);
-            uploadData.append('versionName', versionName);
+            for (const file of filteredFiles) {
+                formData.append("filePaths", file.webkitRelativePath);
+            }
 
-            // Append filtered files
-            filteredFiles.forEach(file => {
-                uploadData.append('files', file);
-            });
+            for (const file of filteredFiles) {
+                formData.append("files", file);
+            }
 
-            // Send files to the server
-            const res = await fetch('http://localhost:3000/api/files/upload', {
-                method: 'POST',
-                body: uploadData,
+            const res = await fetch("http://localhost:3000/api/files/upload", {
+                method: "POST",
+                body: formData
             });
 
             const data = await res.json();
-
-            if (res.ok) {
-                return {
-                    ok: true,
-                    message: data.message || "Files uploaded successfully.",
-                    files: data.files || [],
-                };
-            } else {
-                return {
-                    ok: false,
-                    error: data.error || "Failed to upload files.",
-                };
-            }
+            return res.ok ? 
+                { ok: true, message: data.message, files: data.files } : 
+                { ok: false, error: data.error };
         }
     </script>
 </body>

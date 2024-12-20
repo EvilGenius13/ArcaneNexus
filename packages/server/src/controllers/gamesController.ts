@@ -1,14 +1,24 @@
-import { Database, Statement } from "sqlite";
-import db from "../utils/sqlite";
+import { initializeDatabase, MyDatabase } from "../utils/sqlite";
 
-const sqlDB = db
-
-export default async function getGames(sqlDB: Database): Promise<string[]> {
-  const sql = "SELECT DISTINCT game_name FROM games";
-  const result = await db.all(sql);
-  if (!result) {
-    throw new Error("No games found");
-  }
-  return result.map(row => row.game_name);
+export const getGamesList = async (): Promise<any[]> => {
+  const db: MyDatabase = await initializeDatabase();
+  const games = await db.all('SELECT DISTINCT name FROM games');
+  return games;
 }
 
+export const getGameVersions = async (name: string): Promise<any[]> => {
+  const db: MyDatabase = await initializeDatabase();
+  const versions = await db.all('SELECT version FROM games WHERE name = ?', name);
+  return versions;
+}
+
+export const getGame = async (name: string): Promise<any> => {
+  const db: MyDatabase = await initializeDatabase();
+  const game = await db.get('SELECT * FROM games WHERE name = ?', name);
+  return game;
+}
+
+export const addGame = async (name: string, version: string, description: string, logo: string, jsonBLOB: string): Promise<void> => {
+  const db: MyDatabase = await initializeDatabase();
+  await db.run('INSERT INTO games (name, version, description, logo, jsonBLOB) VALUES (?, ?, ?, ?, ?)', name, version, description, logo, jsonBLOB);
+}

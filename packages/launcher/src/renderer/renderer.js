@@ -37,9 +37,9 @@ window.addEventListener('DOMContentLoaded', async () => {
                 return false;
             }
         }
-        // Check for executablePath and version
+        // Check for executablePath and versionName
         if (typeof manifestData.executablePath !== 'string') return false;
-        if (typeof manifestData.version !== 'string') return false;
+        if (typeof manifestData.versionName !== 'string') return false; // Updated from 'version' to 'versionName'
         return true;
     }
 
@@ -92,7 +92,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 manifest = manifestResponse.data;
 
                 // Update game version display
-                gameVersionElement.textContent = `Game Version: ${manifest.version}`;
+                gameVersionElement.textContent = `Game Version: ${manifest.versionName}`;
 
                 const config = await window.electronAPI.getConfig();
 

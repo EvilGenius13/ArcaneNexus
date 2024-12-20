@@ -3,34 +3,19 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const crypto = require('crypto');
-const { Throttle } = require('stream-throttle');
-const transform = require('stream-transform');
+const { spawn } = require('child_process');
 
-
-let mainWindow;
-let settingsWindow;
-
-// Enable hot reload for development
 if (!app.isPackaged) {
-    const path = require('path');
-
-    console.log('process.execPath:', process.execPath); // Debugging line
-
+    console.log('process.execPath:', process.execPath);
     require('electron-reload')(__dirname, {
         electron: process.execPath
     });
 }
 
-// Replace with your server's IP or URL
-const SERVER_IP = 'https://api-arcane-nexus.timewellspent.ca'; // Example: 'http://localhost:3000'
-
-// Get the user data path for storing configuration
+const SERVER_IP = 'http://localhost:3000/api';
 const userDataPath = app.getPath('userData');
 const configFilePath = path.join(userDataPath, 'config.json');
 
-const { spawn } = require('child_process'); // Import child_process
-
-// Read configuration from file
 function readConfig() {
     try {
         if (fs.existsSync(configFilePath)) {
@@ -43,7 +28,6 @@ function readConfig() {
     return {};
 }
 
-// Write configuration to file
 function writeConfig(config) {
     try {
         fs.writeFileSync(configFilePath, JSON.stringify(config, null, 4));
@@ -54,7 +38,6 @@ function writeConfig(config) {
 
 let config = {};
 
-// IPC Handler: Launch Game
 ipcMain.handle('launch-game', async () => {
     if (!config.installDirectory || !config.manifest) {
         console.error('Game is not installed or manifest is missing.');
@@ -69,15 +52,12 @@ ipcMain.handle('launch-game', async () => {
 
     const executablePath = path.join(config.installDirectory, executableRelativePath);
 
-    // Check if the executable exists
     if (!fs.existsSync(executablePath)) {
         console.error(`Executable not found at path: ${executablePath}`);
         return { success: false };
     }
 
-    // Launch the executable
     try {
-        // On Windows
         if (process.platform === 'win32') {
             spawn('cmd', ['/c', 'start', '', executablePath], { detached: true });
         } else if (process.platform === 'darwin') {
@@ -86,9 +66,6 @@ ipcMain.handle('launch-game', async () => {
             spawn('xdg-open', [executablePath], { detached: true });
         }
 
-        // Optionally quit the launcher (still deciding)
-        // app.quit();
-
         return { success: true };
     } catch (error) {
         console.error('Failed to launch the game:', error);
@@ -96,7 +73,9 @@ ipcMain.handle('launch-game', async () => {
     }
 });
 
-// Function to create the main window
+let mainWindow;
+let settingsWindow;
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
@@ -104,8 +83,8 @@ function createWindow() {
         icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
-            nodeIntegration: false, // Disable Node.js integration
-            contextIsolation: true, // Enable context isolation
+            nodeIntegration: false,
+            contextIsolation: true,
         }
     });
 
@@ -115,13 +94,11 @@ function createWindow() {
         mainWindow.webContents.openDevTools();
     }
 
-    // Handle window closed
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
 }
 
-// Function to create the Settings window
 function createSettingsWindow() {
     if (settingsWindow) {
         settingsWindow.focus();
@@ -136,8 +113,8 @@ function createSettingsWindow() {
         show: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
-            nodeIntegration: false, // Disable Node.js integration
-            contextIsolation: true, // Enable context isolation
+            nodeIntegration: false,
+            contextIsolation: true,
         }
     });
 
@@ -147,16 +124,13 @@ function createSettingsWindow() {
         settingsWindow.show();
     });
 
-    // Handle window closed
     settingsWindow.on('closed', () => {
         settingsWindow = null;
     });
 }
 
 app.whenReady().then(() => {
-    // Read config on app start
     config = readConfig();
-
     createWindow();
 
     app.on('activate', function () {
@@ -168,7 +142,6 @@ app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// IPC Handler: Select Destination Folder
 ipcMain.handle('select-destination', async () => {
     const result = await dialog.showOpenDialog({
         properties: ['openDirectory']
@@ -180,57 +153,63 @@ ipcMain.handle('select-destination', async () => {
     }
 });
 
-// IPC Handler: Check Server Status
 ipcMain.handle('check-server-status', async () => {
     try {
-        const response = await axios.get(SERVER_IP, { timeout: 5000 });
+        const response = await axios.get(`${SERVER_IP}/infra/healthcheck`, { timeout: 5000 });
+        console.log(response);
         return { online: true };
     } catch (error) {
         return { online: false };
     }
 });
 
-// IPC Handler: Fetch Manifest
 ipcMain.handle('fetch-manifest', async () => {
     try {
-        const manifestUrl = `${SERVER_IP}/manifest.json`;
+        const manifestUrl = `${SERVER_IP}/games/Grand Theft Bicycle`;
         const response = await axios.get(manifestUrl);
-        const newManifest = response.data;
+        console.log("RESPONSE DATA", response.data.jsonBLOB);
 
-        // Compare with stored manifest
-        const storedManifest = config.manifest;
-        let updatesAvailable = false;
-
-        if (!storedManifest) {
-            updatesAvailable = true;
-        } else {
-            // Simple comparison logic
-            updatesAvailable = JSON.stringify(newManifest) !== JSON.stringify(storedManifest);
+        if (!response.data || !response.data.jsonBLOB) {
+            throw new Error('Invalid manifest format: jsonBLOB is missing.');
         }
+
+        let newManifest;
+
+        if (typeof response.data.jsonBLOB === 'string') {
+            try {
+                newManifest = JSON.parse(response.data.jsonBLOB);
+            } catch (parseError) {
+                throw new Error('Failed to parse jsonBLOB: ' + parseError.message);
+            }
+        } else if (typeof response.data.jsonBLOB === 'object') {
+            newManifest = response.data.jsonBLOB;
+        } else {
+            throw new Error('Invalid jsonBLOB type. Expected string or object.');
+        }
+
+        const storedManifest = config.manifest;
+        let updatesAvailable = !storedManifest || JSON.stringify(newManifest) !== JSON.stringify(storedManifest);
 
         return { success: true, data: newManifest, updatesAvailable };
     } catch (error) {
+        console.error('Error fetching manifest:', error.message);
         return { success: false, error: error.message };
     }
 });
 
-// IPC Handler: Get Config
 ipcMain.handle('get-config', async () => {
     return readConfig();
 });
 
-// IPC Handler: Set Config
 ipcMain.handle('set-config', async (event, newConfig) => {
     config = { ...config, ...newConfig };
     writeConfig(config);
 });
 
-// IPC Handler: Open Settings Window
 ipcMain.on('open-settings', () => {
     createSettingsWindow();
 });
 
-// Function to compute SHA-256 hash of a file
 function computeFileHash(filePath) {
     return new Promise((resolve, reject) => {
         const hash = crypto.createHash('sha256');
@@ -241,7 +220,6 @@ function computeFileHash(filePath) {
     });
 }
 
-// Function to get all files in a directory recursively
 function getAllFiles(dirPath, arrayOfFiles) {
     const files = fs.readdirSync(dirPath);
 
@@ -259,7 +237,6 @@ function getAllFiles(dirPath, arrayOfFiles) {
     return arrayOfFiles;
 }
 
-// Function to clean up files not in the manifest
 function cleanUpFiles(destination, manifestFiles) {
     const allFiles = getAllFiles(destination);
     const manifestFilePaths = manifestFiles.map((file) => path.join(destination, file.path));
@@ -276,23 +253,27 @@ function cleanUpFiles(destination, manifestFiles) {
     });
 }
 
-// IPC Handler: Download Files
 ipcMain.on('download-files', async (event, manifest, destination) => {
     const { Throttle } = require('stream-throttle');
 
-    let errorsOccurred = false; // Flag to track errors
+    let errorsOccurred = false;
     let downloadedFiles = 0;
     let totalBytesToDownload = 0;
     let totalBytesDownloaded = 0;
 
-    // Variables for download speed calculation
     let bytesDownloadedSinceLastUpdate = 0;
-    let downloadSpeed = 0; // in bytes per second
+    let downloadSpeed = 0;
 
-    // Timer reference
     let progressTimer = null;
 
-    // Determine which files need to be downloaded
+    const gameName = manifest.gameName;
+    const versionName = manifest.versionName;
+
+    // We know top-level directory in manifest is GameName_Version
+    const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
+    const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9-_]/g, "-");
+    const topLevelDir = `${sanitizedGameName}_${sanitizedVersionName}`;
+
     let filesToDownload = [];
     for (const file of manifest.files) {
         const destPath = path.join(destination, file.path);
@@ -311,137 +292,127 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
         }
     }
 
-    // Send initial progress update to renderer
     mainWindow.webContents.send('download-started', {
         totalFiles: filesToDownload.length,
         totalBytes: totalBytesToDownload
     });
 
-    // If there are no files to download, send 'download-complete' and return
     if (filesToDownload.length === 0) {
         mainWindow.webContents.send('download-complete');
-
-        // Update the stored manifest and config if no errors occurred
         if (!errorsOccurred) {
             config.manifest = manifest;
             config.installDirectory = destination;
             writeConfig(config);
         }
-
         return;
     }
 
-    // Start the progress timer to send updates every second
     progressTimer = setInterval(() => {
-        // Calculate download speed
-        downloadSpeed = bytesDownloadedSinceLastUpdate; // bytes per second
-
-        // Remaining bytes
+        downloadSpeed = bytesDownloadedSinceLastUpdate;
         const remainingBytes = totalBytesToDownload - totalBytesDownloaded;
         const safeRemainingBytes = remainingBytes > 0 ? remainingBytes : 0;
 
-        // Send progress update to renderer
         mainWindow.webContents.send('download-progress-size', {
             remainingBytes: safeRemainingBytes,
             downloadSpeed: downloadSpeed
         });
 
-        // Reset the counter for the next interval
         bytesDownloadedSinceLastUpdate = 0;
-    }, 1000); // 1000 ms = 1 second
+    }, 1000);
 
-    // Loop over filesToDownload
     for (const file of filesToDownload) {
-        const fileUrl = `${SERVER_IP}/public_files/${file.path}`;
-        const destPath = path.join(destination, file.path);
-    
+        // file.path already is like "The_Corridor_1-0-0/...". We must request it from the server as is.
+        // Server expects this exact path for download.
+        const fileUrl = `${SERVER_IP}/files/download/${encodeURIComponent(gameName)}/${encodeURIComponent(versionName)}/${file.path}`;
+        console.log('Downloading:', fileUrl);
+        // Locally, we want to remove the top-level directory (GameName_Version) so user sees just the game name folder.
+        // The user chose `destination` as, say, "C:\Games\The Corridor"
+        // We'll remove the first segment from file.path
+        const parts = file.path.split('/');
+        parts.shift(); // remove The_Corridor_1-0-0
+        const adjustedPath = parts.join('/');
+        
+        const destPath = path.join(destination, adjustedPath);
+
         try {
-            // Ensure the directory exists
             fs.mkdirSync(path.dirname(destPath), { recursive: true });
-    
+
             const writer = fs.createWriteStream(destPath);
-    
+
             const response = await axios({
                 url: fileUrl,
                 method: 'GET',
                 responseType: 'stream',
                 timeout: 10000
             });
-    
+
             let throttleStream = null;
-    
-            // Apply throttling if maxDownloadSpeed is set
+
             if (config.maxDownloadSpeed) {
-                // Convert MB/s to bytes/s
                 const bytesPerSecond = config.maxDownloadSpeed * 1e6;
                 throttleStream = new Throttle({ rate: bytesPerSecond });
                 response.data = response.data.pipe(throttleStream);
             }
-    
-            // Track bytes downloaded for the current file
+
             response.data.on('data', (chunk) => {
                 totalBytesDownloaded += chunk.length;
                 bytesDownloadedSinceLastUpdate += chunk.length;
             });
-    
+
             response.data.pipe(writer);
-    
-            // Wait for the download to finish
+
             await new Promise((resolve, reject) => {
                 writer.on('finish', resolve);
                 writer.on('error', reject);
             });
-    
-            // Compute the hash of the downloaded file
+
             const computedHash = await computeFileHash(destPath);
-    
-            // Compare with the hash in the manifest
             if (computedHash !== file.hash) {
                 throw new Error('Hash mismatch');
             }
-    
+
             downloadedFiles++;
-    
-            // Send file count progress update to renderer
+
             mainWindow.webContents.send('download-progress', {
                 downloadedFiles: downloadedFiles,
                 totalFiles: filesToDownload.length
             });
-    
+
         } catch (error) {
-            errorsOccurred = true; // Set the error flag
+            errorsOccurred = true;
             console.error(`Error downloading ${file.path}:`, error.message);
             mainWindow.webContents.send('download-error', {
                 file: file.path,
                 error: error.message
             });
-    
-            // Delete the corrupted file
+
             if (fs.existsSync(destPath)) {
                 fs.unlinkSync(destPath);
             }
         }
     }
 
-    // Clear the progress timer as the download is complete
     if (progressTimer) {
         clearInterval(progressTimer);
     }
 
-    // Final progress update to set remaining bytes to 0
     mainWindow.webContents.send('download-progress-size', {
         remainingBytes: 0,
         downloadSpeed: 0
     });
 
-    // Notify renderer that download is complete
     mainWindow.webContents.send('download-complete');
 
+    // After all files have been downloaded successfully:
     if (!errorsOccurred) {
-        // Clean up old files
-        cleanUpFiles(destination, manifest.files);
+        // Remove top-level directory from manifest files
+        for (const f of manifest.files) {
+            const p = f.path.split('/');
+            p.shift(); // remove The_Corridor_v0.0.1
+            f.path = p.join('/');
+        }
 
-        // Update the stored manifest
+        cleanUpFiles(destination, manifest.files);
         config.manifest = manifest;
         config.installDirectory = destination;
         writeConfig(config);
