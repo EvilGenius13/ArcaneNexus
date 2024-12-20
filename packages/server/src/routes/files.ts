@@ -17,7 +17,6 @@ router.post("/upload", async (req, res) => {
       let gameName: string | undefined;
       let versionNumber: string | undefined;
 
-      // We'll store relative paths in a queue
       const relativePathsQueue: string[] = [];
 
       busboy.on("field", (fieldname: string, val: string) => {
@@ -31,34 +30,34 @@ router.post("/upload", async (req, res) => {
       });
 
       busboy.on("file", (fieldname: string, file: any, info: any) => {
-        console.log(`Starting upload for ${info.filename}`);
-        let bytesRead = 0;
         const { filename, mimeType } = info;
         hasFile = true;
 
         if (!gameName || !versionNumber) {
-          file.resume(); // discard if missing fields
+          file.resume(); 
           return;
         }
 
-        // Pop the corresponding relative path
-        const relativePath = relativePathsQueue.shift() || filename;
+        let relativePath = relativePathsQueue.shift() || filename;
 
-        // Sanitize inputs
+        // Remove user's chosen top-level folder:
+        const parts = relativePath.split('/');
+        parts.shift(); // remove user-chosen folder name
+
         const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
-        const sanitizedVersionName = versionNumber.replace(/[^a-zA-Z0-9-_]/g, "-");
+        const sanitizedVersionName = versionNumber.replace(/[^a-zA-Z0-9._-]/g, "-");
+        const topLevelDir = `${sanitizedGameName}_v${sanitizedVersionName}`;
 
-        // Incorporate the full relativePath
-        const objectName = `${sanitizedGameName}_${relativePath}`;
+        relativePath = `${topLevelDir}/${parts.join('/')}`;
 
         const metaData = {
           "Content-Type": mimeType,
           "X-AN-TimeStamp": new Date().toISOString(),
         };
 
-        const uploadPromise = minioClient.putObject(bucketName, objectName, file, undefined, metaData)
+        const uploadPromise = minioClient.putObject(bucketName, relativePath, file, undefined, metaData)
           .then(() => {
-            files.push({ message: "File uploaded successfully", objectName });
+            files.push({ message: "File uploaded successfully", objectName: relativePath });
           })
           .catch((err) => {
             throw err;
@@ -116,11 +115,11 @@ const downloadHandler: RequestHandler = async (req: Request, res: Response, next
 
   if (!gameName || !versionName || !relativePath) {
     res.status(400).send("Missing required parameters");
-    return; // Return void
+    return;
   }
 
-  const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
-  const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9-_]/g, "-");
+  // The manifest and front-end code ensure relativePath starts with `GameName_vVersion`,
+  // so we can just use relativePath directly.
   const objectName = relativePath;
 
   try {
@@ -144,7 +143,6 @@ const downloadHandler: RequestHandler = async (req: Request, res: Response, next
   }
 };
 
-// Use the typed RequestHandler
 router.get("/download/:gameName/:versionName/*", downloadHandler);
 
 export default router;

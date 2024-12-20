@@ -176,11 +176,8 @@
 
             const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
             const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9._-]/g, "-");
-
-            // Add a 'v' before the sanitized version
             const topLevelDir = `${sanitizedGameName}_v${sanitizedVersionName}`;
 
-            const fileEntries = [];
             for (const file of files) {
                 if (shouldSkipFile(file.name, ignoreList)) continue;
 
@@ -191,17 +188,17 @@
 
                 let relativePath = file.webkitRelativePath.replace(/\\/g, "/");
                 const parts = relativePath.split('/');
-                parts.shift(); // remove the user's top-level dir
+                parts.shift(); // remove the user's chosen top-level dir
+                // Prepend our stable top-level directory
                 relativePath = `${topLevelDir}/${parts.join('/')}`;
 
-                fileEntries.push({
+                manifest.files.push({
                     path: relativePath,
                     size: file.size,
                     hash: hashHex
                 });
             }
 
-            manifest.files = fileEntries;
             return manifest;
         }
 

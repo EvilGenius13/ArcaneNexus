@@ -165,7 +165,7 @@ ipcMain.handle('check-server-status', async () => {
 
 ipcMain.handle('fetch-manifest', async () => {
     try {
-        const manifestUrl = `${SERVER_IP}/games/Grand Theft Bicycle`;
+        const manifestUrl = `${SERVER_IP}/games/The Corridor`;
         const response = await axios.get(manifestUrl);
         console.log("RESPONSE DATA", response.data.jsonBLOB);
 
@@ -269,10 +269,10 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
     const gameName = manifest.gameName;
     const versionName = manifest.versionName;
 
-    // We know top-level directory in manifest is GameName_Version
+    // Create topLevelDir here for reconstructing keys
     const sanitizedGameName = gameName.replace(/[^a-zA-Z0-9-_]/g, "_");
-    const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9-_]/g, "-");
-    const topLevelDir = `${sanitizedGameName}_${sanitizedVersionName}`;
+    const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    const topLevelDir = `${sanitizedGameName}_v${sanitizedVersionName}`;
 
     let filesToDownload = [];
     for (const file of manifest.files) {
@@ -321,18 +321,13 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
     }, 1000);
 
     for (const file of filesToDownload) {
-        // file.path already is like "The_Corridor_1-0-0/...". We must request it from the server as is.
-        // Server expects this exact path for download.
-        const fileUrl = `${SERVER_IP}/files/download/${encodeURIComponent(gameName)}/${encodeURIComponent(versionName)}/${file.path}`;
-        console.log('Downloading:', fileUrl);
-        // Locally, we want to remove the top-level directory (GameName_Version) so user sees just the game name folder.
-        // The user chose `destination` as, say, "C:\Games\The Corridor"
-        // We'll remove the first segment from file.path
-        const parts = file.path.split('/');
-        parts.shift(); // remove The_Corridor_1-0-0
-        const adjustedPath = parts.join('/');
+        // Prepend topLevelDir to file.path to match Minio keys
+        const remoteKey = `${topLevelDir}/${file.path}`;
+        const fileUrl = `${SERVER_IP}/files/download/${encodeURIComponent(gameName)}/${encodeURIComponent(versionName)}/${encodeURIComponent(remoteKey)}`;
         
-        const destPath = path.join(destination, adjustedPath);
+        console.log('Downloading:', fileUrl);
+
+        const destPath = path.join(destination, file.path);
 
         try {
             fs.mkdirSync(path.dirname(destPath), { recursive: true });
@@ -403,15 +398,9 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
 
     mainWindow.webContents.send('download-complete');
 
-    // After all files have been downloaded successfully:
     if (!errorsOccurred) {
-        // Remove top-level directory from manifest files
-        for (const f of manifest.files) {
-            const p = f.path.split('/');
-            p.shift(); // remove The_Corridor_v0.0.1
-            f.path = p.join('/');
-        }
-
+        // Since your manifest.files already don't have top-level directory in their path,
+        // we do not need to modify them again.
         cleanUpFiles(destination, manifest.files);
         config.manifest = manifest;
         config.installDirectory = destination;
