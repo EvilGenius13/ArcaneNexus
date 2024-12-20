@@ -12,6 +12,12 @@ export const getGameVersions = async (name: string): Promise<any[]> => {
   return versions;
 }
 
+export const getLatestGameVersion = async (name: string): Promise<any> => {
+  const db: MyDatabase = await initializeDatabase();
+  const version = await db.get('SELECT version FROM games WHERE name = ? ORDER BY version DESC LIMIT 1', name);
+  return version;
+}
+
 export const getGame = async (name: string): Promise<any> => {
   const db: MyDatabase = await initializeDatabase();
   const game = await db.get('SELECT * FROM games WHERE name = ?', name);
