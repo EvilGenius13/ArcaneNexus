@@ -31,7 +31,7 @@ const GameGrid: React.FC = () => {
   return (
     <div>
       {error && <p className="text-red-400">{error}</p>}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
         {Object.keys(projects).map((projectName) => {
           const project = projects[projectName][0];
           const logoUrl =
@@ -50,7 +50,7 @@ const GameGrid: React.FC = () => {
                 alt={`${projectName} Logo`}
                 className="w-full h-32 object-contain mb-2"
               />
-              <h3 className="font-bebas text-xl">{projectName}</h3>
+              <h3 className="text-center font-bebas text-xl">{projectName}</h3>
             </div>
           );
         })}
