@@ -165,7 +165,7 @@ ipcMain.handle('check-server-status', async () => {
 
 ipcMain.handle('fetch-manifest', async () => {
     try {
-        const manifestUrl = `${SERVER_IP}/games/The Corridor`;
+        const manifestUrl = `${SERVER_IP}/games/Grand Theft Bicycle`;
         const response = await axios.get(manifestUrl);
         console.log("RESPONSE DATA", response.data.jsonBLOB);
 
