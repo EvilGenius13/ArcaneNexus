@@ -22,7 +22,7 @@ const GameDetail: React.FC = () => {
 
   async function loadGameDetails(name: string) {
     try {
-      const response = await fetch("http://localhost:3000/project_list");
+      const response = await fetch("http://localhost:3001/project_list");
       const projectList = await response.json();
       const thisProject = projectList[name]?.[0];
 
@@ -54,9 +54,7 @@ const GameDetail: React.FC = () => {
         className="w-64 h-64 object-contain"
       />
       <p className="font-roboto">Version: {project.version}</p>
-      <p className="font-roboto">
-        Use the sidebar to Install, Update, or Play.
-      </p>
+      <p className="font-roboto">Patch notes here [WIP]</p>
     </div>
   );
 };

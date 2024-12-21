@@ -19,7 +19,7 @@ const GameGrid: React.FC = () => {
 
   async function loadGames() {
     try {
-      const response = await fetch("http://localhost:3000/project_list");
+      const response = await fetch("http://localhost:3001/project_list");
       const projectList = await response.json();
       setProjects(projectList);
     } catch (err) {
