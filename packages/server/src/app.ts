@@ -9,7 +9,6 @@ const app = express();
 const PORT = 3000;
 
 const gameFileBucketName: string = 'game-assets';
-const gameManifestBucketName: string = 'game-manifests';
 
 // Cors
 app.use(cors({
@@ -32,7 +31,7 @@ const startServer = async () => {
     await initializeDatabase();
 
     // Initialize MinIO buckets
-    await initializeBuckets([gameFileBucketName, gameManifestBucketName]);
+    await initializeBuckets([gameFileBucketName]);
     
     console.log(`MinIO buckets initialized successfully.`);
     app.listen(PORT, () => {

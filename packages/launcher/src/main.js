@@ -165,7 +165,7 @@ ipcMain.handle('check-server-status', async () => {
 
 ipcMain.handle('fetch-manifest', async () => {
     try {
-        const manifestUrl = `${SERVER_IP}/games/Grand Theft Bicycle`;
+        const manifestUrl = `${SERVER_IP}/games/The Corridor`;
         const response = await axios.get(manifestUrl);
         console.log("RESPONSE DATA", response.data.jsonBLOB);
 
@@ -322,7 +322,7 @@ ipcMain.on('download-files', async (event, manifest, destination) => {
 
     for (const file of filesToDownload) {
         // Prepend topLevelDir to file.path to match Minio keys
-        const remoteKey = `${topLevelDir}/${file.path}`;
+        const remoteKey = file.path;
         const fileUrl = `${SERVER_IP}/files/download/${encodeURIComponent(gameName)}/${encodeURIComponent(versionName)}/${encodeURIComponent(remoteKey)}`;
         
         console.log('Downloading:', fileUrl);

@@ -1,0 +1,52 @@
+services:
+    minio:
+      image: minio/minio
+      ports:
+      - "9000:9000"
+      - "9001:9001"
+      environment:
+        MINIO_ROOT_USER: development
+        MINIO_ROOT_PASSWORD: dev-pass
+      volumes:
+        - ./data:/data
+        - ./minio/config:/root/.minio
+      command: server /data --console-address ":9001"
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+        interval: 5s
+        timeout: 10s
+        retries: 3
+
+    backend:
+      depends_on:
+        minio:
+          condition: service_healthy
+      build:
+        context: ../../packages/server
+      ports:
+        - "3000:3000"
+      volumes:
+        - db_data:/app/dist/data
+      environment:
+        MINIO_ENDPOINT: minio
+        MINIO_PORT: 9000
+        MINIO_REGION: us-east-1
+        MINIO_ACCESS_KEY: development # Should change on production
+        MINIO_SECRET_KEY: dev-pass # Should change on production
+
+    frontend:
+      build:
+        context: ../../packages/front-end
+      ports:
+        - "4000:4000"
+      environment:
+        BACKEND_ENDPOINT: localhost
+        BACKEND_PORT: 3000
+
+volumes:
+  db_data:
+    driver: local
+  minio_data:
+    driver: local
+  minio_config:
+    driver: local

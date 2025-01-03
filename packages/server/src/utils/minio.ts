@@ -1,16 +1,21 @@
 // utils/minio.ts
 import * as Minio from 'minio';
 
-// TODO: Switch out hardcoded test values with environment variables or configuration
+const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || 'localhost';
+const MINIO_PORT = process.env.MINIO_PORT ? parseInt(process.env.MINIO_PORT) : 9000;
+const MINIO_REGION = process.env.MINIO_REGION || 'us-east-1';
+const MINIO_ACCESS_KEY = process.env.MINIO_ACCESS_KEY || 'development';
+const MINIO_SECRET_KEY = process.env.MINIO_SECRET_KEY || 'dev-pass';
+
 export const minioClient = new Minio.Client({
-  endPoint: 'localhost',      // Replace with your MinIO server endpoint
-  port: 9000,                 // Default port for MinIO
-  useSSL: false,              // Set to true if SSL is enabled
-  accessKey: 'development',
-  secretKey: 'dev-pass',
+  endPoint: MINIO_ENDPOINT,
+  port: MINIO_PORT,
+  useSSL: false, // TODO: Look into enabling SSL
+  accessKey: MINIO_ACCESS_KEY,
+  secretKey: MINIO_SECRET_KEY,
 });
 
-const defaultRegion = 'us-east-1'; // TODO: Switch out hardcoded region if necessary
+const defaultRegion = MINIO_REGION;
 
 /**
  * Checks if a bucket exists.

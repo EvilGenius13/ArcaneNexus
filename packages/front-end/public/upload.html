@@ -80,10 +80,18 @@
 
     <div id="response" class="response" style="display: none;"></div>
 
+    <!-- Load the configuration script -->
+    <script src="/config.js"></script>
+
     <script>
         const form = document.getElementById("uploadManifestForm");
         const responseDiv = document.getElementById("response");
         const ignoreList = [".DS_Store", ".log", ".tmp"];
+
+        // Access the configuration variables
+        const backendEndpoint = window.config.backendEndpoint;
+        const backendPort = window.config.backendPort;
+        const baseURL = `http://${backendEndpoint}:${backendPort}`;
 
         function shouldSkipFile(fileName, ignoreFiles) {
             return ignoreFiles.some(pattern => {
@@ -213,7 +221,7 @@
             formData.append("description", description);
             formData.append("file", jsonFile, "manifest.json");
 
-            const res = await fetch("http://localhost:3000/api/manifest/upload", {
+            const res = await fetch(`${baseURL}/api/manifest/upload`, {
                 method: "POST",
                 body: formData
             });
@@ -245,7 +253,7 @@
                 formData.append("files", file);
             }
 
-            const res = await fetch("http://localhost:3000/api/files/upload", {
+            const res = await fetch(`${baseURL}/api/files/upload`, {
                 method: "POST",
                 body: formData
             });
