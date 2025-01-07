@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Arcane Nexus Upload (Batch) + FilePond Demo</title>
+  <link
+    href="https://unpkg.com/filepond/dist/filepond.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    form {
+      max-width: 600px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 10px 5px 0 0;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .filepond--item {
+      max-width: 50em;
+    }
+    #response {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <h2>Part A: Select Folder to Generate Manifest</h2>
+  <form id="manifestForm">
+    <label for="gameName">Game Name:</label>
+    <input type="text" id="gameName" name="gameName" required />
+
+    <label for="versionName">Version Number:</label>
+    <input type="text" id="versionName" name="versionName" required />
+
+    <!-- Additional fields for logo, description, etc. -->
+
+    <label for="folderInput">Select Folder:</label><br/>
+    <input
+      type="file"
+      id="folderInput"
+      name="folderInput"
+      webkitdirectory
+      directory
+      multiple
+      required
+    />
+
+    <br/><br/>
+    <button type="submit">Generate Manifest</button>
+  </form>
+
+  <hr />
+
+  <h2>Part B: Manage Files with FilePond (Batch Upload)</h2>
+  <!-- The FilePond input; no "server" property here, we do custom upload -->
+  <input
+    type="file"
+    class="filepond"
+    id="filepondInput"
+    name="filepond"
+    multiple
+  />
+
+  <!-- Our custom "Batch Upload" button -->
+  <button id="batchUploadBtn">Upload All (Single Request)</button>
+
+  <div id="response" style="display:none;"></div>
+
+  <!-- Load FilePond and any plugins you might need -->
+  <script src="https://unpkg.com/filepond/dist/filepond.min.js"></script>
+  <!-- If you use other FilePond plugins, load them here. -->
+
+  <script src="/config.js"></script>
+
+  <script>
+    // Access your config variables
+    const backendEndpoint = window.config.backendEndpoint;
+    const backendPort = window.config.backendPort;
+    const baseURL = `http://${backendEndpoint}:${backendPort}`;
+
+    // PART A: Generate Manifest
+    const manifestForm = document.getElementById("manifestForm");
+    const folderInput = document.getElementById("folderInput");
+
+    // We'll keep these in memory to feed them into FilePond
+    let selectedFiles = [];
+
+    manifestForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const gameName = document.getElementById("gameName").value.trim();
+      const versionName = document.getElementById("versionName").value.trim();
+      const files = Array.from(folderInput.files);
+
+      if (!files || files.length === 0) {
+        alert("Please select a folder first.");
+        return;
+      }
+
+      selectedFiles = files;
+
+      // EXAMPLE: Generate a quick manifest in the console
+      const manifest = {
+        generatedAt: new Date().toISOString(),
+        gameName,
+        versionName,
+        files: []
+      };
+
+      // We do basic hashing or whatever you need
+      for (const file of files) {
+        const arrayBuffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+        manifest.files.push({
+          path: file.webkitRelativePath,
+          size: file.size,
+          hash: hashHex
+        });
+      }
+
+      console.log("Manifest created:", manifest);
+      alert("Manifest has been generated (see console). Now you can proceed to part B (batch upload).");
+
+      // Optional: Upload your manifest to /api/manifest/upload here if you want
+      // ...
+    });
+
+    // PART B: Setup FilePond for visual file management
+    const pond = FilePond.create(document.getElementById("filepondInput"), {
+      // We do NOT set 'server.process' because we want to do one batch request
+      allowMultiple: true,
+      instantUpload: false,  // Don't upload automatically
+      // Hide the default process button to avoid accidental per-file uploads
+      // (Optionally you can style/hide the UI in CSS or do something else)
+    });
+
+    // We'll remove any existing items in the pond, then add the newly selected
+    // folder's files so the user can see them.
+    manifestForm.addEventListener("submit", () => {
+      pond.removeFiles();
+
+      selectedFiles.forEach((file) => {
+        // We store the relative path in metadata, in case we want it
+        pond.addFile(file, {
+          metadata: {
+            relativePath: file.webkitRelativePath
+          }
+        });
+      });
+    });
+
+    // The "Upload All (Single Request)" button
+    const batchUploadBtn = document.getElementById("batchUploadBtn");
+    const responseDiv = document.getElementById("response");
+
+    batchUploadBtn.addEventListener("click", async () => {
+      try {
+        responseDiv.style.display = "block";
+        responseDiv.innerHTML = "<p>Uploading files in one request...</p>";
+
+        const gameName = document.getElementById("gameName").value.trim();
+        const versionName = document.getElementById("versionName").value.trim();
+
+        if (!gameName || !versionName) {
+          throw new Error("Missing gameName or versionName");
+        }
+
+        // Gather all FilePond items
+        const pondItems = pond.getFiles(); 
+        if (!pondItems || pondItems.length === 0) {
+          throw new Error("No files in FilePond to upload.");
+        }
+
+        // Build a single FormData
+        const formData = new FormData();
+        formData.append("gameName", gameName);
+        formData.append("versionName", versionName);
+
+        // For each file, append webkitRelativePath (or your old logic "filePaths")
+        pondItems.forEach(item => {
+          const relPath = item.getMetadata("relativePath") || item.file.name;
+          formData.append("filePaths", relPath);
+        });
+
+        // Then append the actual file objects
+        pondItems.forEach(item => {
+          formData.append("files", item.file, item.file.name);
+        });
+
+        // Now send them all in a single request
+        const res = await fetch(`${baseURL}/api/files/upload`, {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Upload failed");
+        }
+
+        responseDiv.innerHTML = `<h3 class="success">${data.message}</h3>`;
+        console.log("Server returned:", data);
+
+      } catch (err) {
+        console.error(err);
+        responseDiv.innerHTML = `<h3 class="error">Error: ${err.message}</h3>`;
+      }
+    });
+  </script>
+</body>
+</html>

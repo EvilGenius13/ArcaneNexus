@@ -41,6 +41,11 @@
         .error {
             color: red;
         }
+        /* Just for a little progress style */
+        .progress-info {
+            margin: 10px 0;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -123,7 +128,8 @@
             }
 
             try {
-                // 1. Generate Manifest
+                // 1. Generate Manifest (with progress updates)
+                responseDiv.innerHTML = "<p class='loading'>Generating manifest. Please wait...</p>";
                 const manifest = await generateManifest({
                     gameName,
                     versionName,
@@ -134,6 +140,7 @@
                 });
 
                 // 2. Upload Manifest
+                responseDiv.innerHTML += "<p class='loading'>Uploading manifest...</p>";
                 const manifestResponse = await uploadManifest({
                     manifest, 
                     gameName, 
@@ -144,8 +151,9 @@
                     throw new Error(manifestResponse.error);
                 }
 
-                // 3. Upload Files
-                const filesResponse = await uploadFiles({
+                // 3. Upload Files (with simple "X of Y" progress)
+                responseDiv.innerHTML += "<p class='loading'>Uploading files...</p>";
+                const filesResponse = await uploadFilesIndividually({
                     files,
                     gameName,
                     versionName
@@ -154,7 +162,7 @@
                     throw new Error(filesResponse.error);
                 }
 
-                responseDiv.innerHTML = `
+                responseDiv.innerHTML += `
                     <h3 class="success">${manifestResponse.message}</h3>
                     <h4 class="success">${filesResponse.message}</h4>
                 `;
@@ -186,7 +194,16 @@
             const sanitizedVersionName = versionName.replace(/[^a-zA-Z0-9._-]/g, "-");
             const topLevelDir = `${sanitizedGameName}_v${sanitizedVersionName}`;
 
-            for (const file of files) {
+            // Create a small progress placeholder in the responseDiv
+            const progressPlaceholder = document.createElement("p");
+            progressPlaceholder.classList.add("progress-info");
+            responseDiv.appendChild(progressPlaceholder);
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                // Update progress text for each file hashed
+                progressPlaceholder.textContent = `Manifest: Processing file ${i + 1} of ${files.length}`;
+
                 if (shouldSkipFile(file.name, ignoreList)) continue;
 
                 const arrayBuffer = await file.arrayBuffer();
@@ -206,6 +223,9 @@
                     hash: hashHex
                 });
             }
+
+            // Remove the progress text once complete
+            progressPlaceholder.remove();
 
             return manifest;
         }
@@ -232,7 +252,10 @@
                 { ok: false, error: data.error };
         }
 
-        async function uploadFiles({ files, gameName, versionName }) {
+        /**
+         * Upload each file in a loop, so we can display a simple "X of Y uploaded" progress.
+         */
+        async function uploadFilesIndividually({ files, gameName, versionName }) {
             const filteredFiles = files.filter(file => 
                 !shouldSkipFile(file.name, ignoreList) && file.name !== "manifest.json"
             );
@@ -241,27 +264,55 @@
                 return { ok: false, error: "No files to upload after filtering." };
             }
 
-            const formData = new FormData();
-            formData.append("gameName", gameName);
-            formData.append("versionName", versionName);
+            // Add a small progress element for file uploads
+            const uploadProgressElem = document.createElement("p");
+            uploadProgressElem.classList.add("progress-info");
+            responseDiv.appendChild(uploadProgressElem);
 
-            for (const file of filteredFiles) {
+            // We'll keep track of how many succeeded and how many total.
+            let uploadedCount = 0;
+            const totalCount = filteredFiles.length;
+
+            for (let i = 0; i < filteredFiles.length; i++) {
+                const file = filteredFiles[i];
+                uploadProgressElem.textContent = `Uploading file ${i + 1} of ${totalCount}: ${file.name}`;
+
+                const formData = new FormData();
+                formData.append("gameName", gameName);
+                formData.append("versionName", versionName);
+                // The server endpoint needs the actual file. 
+                // If your API expects multiple at once, you might have to adjust the code, 
+                // but here we’re doing them individually.
                 formData.append("filePaths", file.webkitRelativePath);
-            }
-
-            for (const file of filteredFiles) {
                 formData.append("files", file);
+
+                // Perform the upload
+                const res = await fetch(`${baseURL}/api/files/upload`, {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    uploadProgressElem.textContent = `Error uploading ${file.name}: ${data.error}`;
+                    // Optionally, you can decide whether to continue or stop here:
+                    // return { ok: false, error: data.error };
+                    // But we'll just note it and continue.
+                } else {
+                    uploadedCount++;
+                }
             }
 
-            const res = await fetch(`${baseURL}/api/files/upload`, {
-                method: "POST",
-                body: formData
-            });
+            uploadProgressElem.textContent = `Finished uploading ${uploadedCount} of ${totalCount} files.`;
 
-            const data = await res.json();
-            return res.ok ? 
-                { ok: true, message: data.message, files: data.files } : 
-                { ok: false, error: data.error };
+            // Optionally, remove progress display or leave it as a summary.
+            // uploadProgressElem.remove();
+
+            if (uploadedCount === 0) {
+                return { ok: false, error: "All file uploads failed." };
+            }
+
+            return { ok: true, message: `Uploaded ${uploadedCount} of ${totalCount} files.` };
         }
     </script>
 </body>

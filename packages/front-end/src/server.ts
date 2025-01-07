@@ -1,9 +1,13 @@
 import express from 'express';
 import path from 'path';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+//Cors
+app.use(cors());
 
 // Middleware to parse JSON and URL-encoded data
 app.use(bodyParser.json());
