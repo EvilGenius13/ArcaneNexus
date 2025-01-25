@@ -22,7 +22,7 @@ if (!app.isPackaged) {
 }
 
 // Replace with your server's IP or URL
-const SERVER_IP = "https://api-arcane-nexus.timewellspent.ca"; // Example: 'http://localhost:3000'
+const SERVER_IP = "http://localhost:3000/API/"; // Example: 'http://localhost:3000'
 
 // Get the user data path for storing configuration
 const userDataPath = app.getPath("userData");
@@ -113,7 +113,7 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL("http://localhost:3000"); // Loads React from server
+  mainWindow.loadURL("http://localhost:3001"); // Loads React from server
 
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
@@ -189,8 +189,10 @@ ipcMain.handle("select-destination", async () => {
 // IPC Handler: Check Server Status
 ipcMain.handle("check-server-status", async () => {
   try {
-    const response = await axios.get(SERVER_IP, { timeout: 5000 });
-    return { online: true };
+    const response = await axios.get(`${SERVER_IP}/infra/healthcheck`, {
+      timeout: 5000,
+    });
+    if (response) return { online: true };
   } catch (error) {
     return { online: false };
   }
